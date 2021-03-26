@@ -57,6 +57,7 @@ typedef struct {
 	uint8_t *prg;
 	size_t chr_size;
 	uint8_t *chr;
+    size_t prg_ram_size;
 } rom_t;
 
 typedef struct {

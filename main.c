@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <SDL2/SDL.h>
+
 typedef struct {
 	uint8_t header[16];
 	uint8_t *trainer;
@@ -126,6 +128,33 @@ int main(int argc, char **argv) {
 	}
 
 	printf("trainer: %d\nprg size: %zu\nchr size: %zu\n", rom.trainer != NULL, rom.prg_size, rom.chr_size);
+
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+		fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	SDL_Window *window = SDL_CreateWindow("NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
+	if (window == NULL) {
+		fprintf(stderr, "Failed to create SDL window: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	SDL_Surface *surface = SDL_GetWindowSurface(window);
+
+	if (SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 0x00, 0x40, 0xFF)) < 0) {
+		fprintf(stderr, "Failed to fillrect: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	SDL_UpdateWindowSurface(window);
+
+	for(;;)
+		SDL_Delay(1000);
+
+	SDL_DestroyWindow(window);
+
+	SDL_Quit();
 
 	return 0;
 }

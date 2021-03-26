@@ -4,14 +4,7 @@
 
 #include <SDL2/SDL.h>
 
-typedef struct {
-	uint8_t header[16];
-	uint8_t *trainer;
-	size_t prg_size;
-	uint8_t *prg;
-	size_t chr_size;
-	uint8_t *chr;
-} rom_t;
+#include "system.h"
 
 int create_rom(FILE *file, rom_t *rom) {
 	if (fseek(file, 0, SEEK_SET) != 0) {

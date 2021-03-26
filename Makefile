@@ -5,8 +5,8 @@ override CFLAGS += -std=c99 -Wall
 all: nes
 
 
-nes: main.c
-	$(CC) $(CFLAGS) main.c -o nes -lSDL2
+nes: main.c system.c
+	$(CC) $(CFLAGS) main.c system.c -o nes -lSDL2
 
 .PHONY: clean
 clean:

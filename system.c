@@ -6,7 +6,7 @@
 uint8_t *mapper0(uint16_t addr, nes_t *nes) {
 	if (addr >= 0x6000 && addr < 0x8000) {
 		if (nes->sram.size < 1) {
-			fprintf(stderr, "no sram\n");
+			fprintf(stderr, "No SRAM\n");
 			return NULL;
 		}
 		return &nes->sram.mem[(addr - 0x6000) % nes->sram.size];
@@ -119,14 +119,21 @@ uint8_t *mem(uint16_t addr, nes_t *nes, int write) {
 }
 
 uint8_t mem_read(uint16_t addr, nes_t *nes) {
-	++nes->cpu.cycles;
-    return *mem(addr, nes, 0);
+    uint8_t value = *mem(addr, nes, 0);
+    ++nes->cpu.cycles;
+#ifdef DEBUG
+    printf("Read %02X from %04X\n", value, addr);
+#endif 
+    return value;
 }
 
 void mem_write(uint16_t addr, uint8_t value, nes_t *nes) {
+    *mem(addr, nes, 1) = value;
     ++nes->cpu.cycles;
     nes->cpu.just_wrote = 1;
-    *mem(addr, nes, 1) = value;
+#ifdef DEBUG
+    printf("Wrote %02X to %04X\n", value, addr);
+#endif
 }
 
 void push(uint8_t value, nes_t *nes) {
@@ -228,18 +235,21 @@ void asl_mem(uint16_t addr, nes_t *nes) {
 void bcc(uint8_t arg, nes_t *nes) {
     if (!get_carry(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
 void bcs(uint8_t arg, nes_t *nes) {
     if (get_carry(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
 void beq(uint8_t arg, nes_t *nes) {
     if (get_zero(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
@@ -252,18 +262,21 @@ void bit(uint8_t arg, nes_t *nes) {
 void bmi(uint8_t arg, nes_t *nes) {
     if (get_negative(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
 void bne(uint8_t arg, nes_t *nes) {
     if (!get_zero(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
 void bpl(uint8_t arg, nes_t *nes) {
     if (!get_negative(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
@@ -278,12 +291,14 @@ void brk(nes_t *nes) {
 void bvc(uint8_t arg, nes_t *nes) {
     if (!get_overflow(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
 void bvs(uint8_t arg, nes_t *nes) {
     if (get_overflow(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.just_branched = 1;
     }
 }
 
@@ -565,6 +580,41 @@ address_mode_t get_address_mode(uint8_t opcode) {
         // JSR
         return ABSOLUTE;
     }
+    if (opcode == 0x40
+            || opcode == 0x60
+            || opcode == 0x08
+            || opcode == 0x28
+            || opcode == 0x48
+            || opcode == 0x88
+            || opcode == 0xA8
+            || opcode == 0xC8
+            || opcode == 0xE8
+            || opcode == 0x18
+            || opcode == 0x38
+            || opcode == 0x58
+            || opcode == 0x78
+            || opcode == 0x98
+            || opcode == 0xB8
+            || opcode == 0xD8
+            || opcode == 0xF8
+            || opcode == 0x8A
+            || opcode == 0x9A
+            || opcode == 0xAA
+            || opcode == 0xBA
+            || opcode == 0xCA
+            || opcode == 0xEA) {
+        return IMPLIED;
+    } else if ((opcode & 0x1F) == 0x10) {
+        // Conditional branch instructions
+        return RELATIVE;
+    } else if (opcode == 0x00) {
+        // BRK
+        return IMPLIED;
+    } else if (opcode == 0x20) {
+        // JSR
+        return ABSOLUTE;
+    }
+
     uint8_t aaa = opcode >> 5;
     uint8_t bbb = ((opcode >> 2) & 7);
     uint8_t cc = opcode & 3;
@@ -583,9 +633,9 @@ address_mode_t get_address_mode(uint8_t opcode) {
             case 5:
                 return ZERO_PAGE_X;
             case 6:
-                return ABSOLUTE_X;
-            case 7:
                 return ABSOLUTE_Y;
+            case 7:
+                return ABSOLUTE_X;
         }
     }
     if (cc == 2) {
@@ -617,7 +667,7 @@ address_mode_t get_address_mode(uint8_t opcode) {
             case 7:
                 return ABSOLUTE_X;
         }
-    }
+    }    
     return ERROR;
 }
 
@@ -691,7 +741,16 @@ uint8_t get_instruction_size(uint8_t opcode) {
     }
 }
 
-void run(rom_t *rom) {
+void print_registers(cpu_regfile_t *regfile) {
+    printf("A=%02X, X=%02X, Y=%02X, S=%02X, P=%02X, PC=%04X\n", regfile->a, regfile->x, regfile->y, regfile->s, regfile->p, regfile->pc);
+}
+
+#ifdef DEBUG
+unsigned int sleep(unsigned int seconds);
+int usleep(unsigned int usec);
+#endif
+
+void init_nes(rom_t *rom) {
 	nes_t nes;
     
     nes.rom = rom;
@@ -724,6 +783,8 @@ void run(rom_t *rom) {
     nes.apu.regfile.status = 0;
 
     for (;;) {
+        print_registers(&nes.cpu.regfile);
+
         uint16_t instruction_addr = nes.cpu.regfile.pc;
         uint8_t opcode = mem_read(instruction_addr, &nes);
         
@@ -734,8 +795,77 @@ void run(rom_t *rom) {
         }
 
         uint8_t instruction_size = get_instruction_size(opcode); 
+        printf("Instruction %02X is %d bytes long\n", opcode, instruction_size);
 
-        if ((opcode & 0x3) == 1) {
+        if (opcode == 0x10) {
+            bpl(address, &nes);
+        } else if (opcode == 0x30) {
+            bmi(address, &nes);
+        } else if (opcode == 0x50) {
+            bvc(address, &nes);
+        } else if (opcode == 0x70) {
+            bvs(address, &nes);
+        } else if (opcode == 0x90) {
+            bcc(address, &nes);
+        } else if (opcode == 0xB0) {
+            bcs(address, &nes);
+        } else if (opcode == 0xD0) {
+            bne(address, &nes);
+        } else if (opcode == 0xF0) {
+            beq(address, &nes);
+        } else if (opcode == 0x00) {
+            brk(&nes);
+        } else if (opcode == 0x20) {
+            jsr(address, &nes);
+        } else if (opcode == 0x40) {
+            rti(&nes);
+        } else if (opcode == 0x60) {
+            rts(&nes);
+        } else if (opcode == 0x08) {
+            php(&nes);
+        } else if (opcode == 0x28) {
+            plp(&nes);
+        } else if (opcode == 0x48) {
+            pha(&nes);
+        } else if (opcode == 0x68) {
+            pla(&nes);
+        } else if (opcode == 0x88) {
+            dey(&nes);
+        } else if (opcode == 0xA8) {
+            tay(&nes);
+        } else if (opcode == 0xC8) {
+            iny(&nes);
+        } else if (opcode == 0xE8) {
+            inx(&nes);
+        } else if (opcode == 0x18) {
+            clc(&nes);
+        } else if (opcode == 0x38) {
+            sec(&nes);
+        } else if (opcode == 0x58) {
+            cli(&nes);
+        } else if (opcode == 0x78) {
+            sei(&nes);
+        } else if (opcode == 0x98) {
+            tya(&nes);
+        } else if (opcode == 0xB8) {
+            clv(&nes);
+        } else if (opcode == 0xD8) {
+            cld(&nes);
+        } else if (opcode == 0xF8) {
+            sed(&nes);
+        } else if (opcode == 0x8A) {
+            txa(&nes);
+        } else if (opcode == 0x9A) {
+            txs(&nes);
+        } else if (opcode == 0xAA) {
+            tax(&nes);
+        } else if (opcode == 0xBA) {
+            tsx(&nes);
+        } else if (opcode == 0xCA) {
+            dex(&nes);
+        } else if (opcode == 0xEA) {
+            nop(&nes);
+        } else if ((opcode & 0x3) == 1) {
             switch (opcode >> 5) {
                 case 0:
                     ora(mem_read(address, &nes), &nes);
@@ -809,8 +939,8 @@ void run(rom_t *rom) {
                     inc(address, &nes);
                     break;
             }
-        } else if ((opcode & 0x1) == 0) {
-            switch (opcode >> 3) {
+        } else if ((opcode & 0x3) == 0) {
+            switch (opcode >> 5) {
                 case 1:
                     bit(mem_read(address, &nes), &nes);
                     break;
@@ -832,112 +962,9 @@ void run(rom_t *rom) {
                     break;
             }
         } else {
-            switch (opcode) {
-                case 0x10:
-                    bpl(mem_read(address, &nes), &nes);
-                    break;
-                case 0x30:
-                    bmi(mem_read(address, &nes), &nes);
-                    break;
-                case 0x50:
-                    bvc(mem_read(address, &nes), &nes);
-                    break;
-                case 0x70:
-                    bvs(mem_read(address, &nes), &nes);
-                    break;
-                case 0x90:
-                    bcc(mem_read(address, &nes), &nes);
-                    break;
-                case 0xB0:
-                    bcs(mem_read(address, &nes), &nes);
-                    break;
-                case 0xD0:
-                    bne(mem_read(address, &nes), &nes);
-                    break;
-                case 0xF0:
-                    beq(mem_read(address, &nes), &nes);
-                    break;
-                case 0x00:
-                    brk(&nes);
-                    break;
-                case 0x20:
-                    jsr(address, &nes);
-                    break;
-                case 0x40:
-                    rti(&nes);
-                    break;
-                case 0x60:
-                    rts(&nes);
-                    break;
-                case 0x08:
-                    php(&nes);
-                    break;
-                case 0x28:
-                    plp(&nes);
-                    break;
-                case 0x48:
-                    pha(&nes);
-                    break;
-                case 0x68:
-                    pla(&nes);
-                    break;
-                case 0x88:
-                    dey(&nes);
-                    break;
-                case 0xA8:
-                    tay(&nes);
-                    break;
-                case 0xC8:
-                    iny(&nes);
-                    break;
-                case 0xE8:
-                    inx(&nes);
-                    break;
-                case 0x18:
-                    clc(&nes);
-                    break;
-                case 0x38:
-                    sec(&nes);
-                    break;
-                case 0x58:
-                    cli(&nes);
-                    break;
-                case 0x78:
-                    sei(&nes);
-                    break;
-                case 0x98:
-                    tya(&nes);
-                    break;
-                case 0xB8:
-                    clv(&nes);
-                    break;
-                case 0xD8:
-                    cld(&nes);
-                    break;
-                case 0xF8:
-                    sed(&nes);
-                    break;
-                case 0x8A:
-                    txa(&nes);
-                    break;
-                case 0x9A:
-                    txs(&nes);
-                    break;
-                case 0xAA:
-                    tax(&nes);
-                    break;
-                case 0xBA:
-                    tsx(&nes);
-                    break;
-                case 0xCA:
-                    dex(&nes);
-                    break;
-                case 0xEA:
-                    nop(&nes);
-                    break;
-            }
+            fprintf(stderr, "Unknown opcode %02X\n", opcode);
         }
-        
+
         if (!nes.cpu.just_branched) {
             nes.cpu.regfile.pc += instruction_size;
         }
@@ -968,6 +995,11 @@ void run(rom_t *rom) {
 
         nes.cpu.just_branched = 0;
         nes.cpu.just_wrote = 0;
+
+#ifdef DEBUG
+        usleep(500000);
+        printf("\n");
+#endif
     }
 }
 

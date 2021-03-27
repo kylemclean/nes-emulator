@@ -76,4 +76,6 @@ typedef struct {
 	sram_t sram;
 } nes_t;
 
+void init_nes(rom_t *rom);
+
 #endif // _SYSTEM_H

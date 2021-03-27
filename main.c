@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,11 +13,11 @@ int create_rom(FILE *file, rom_t *rom) {
 		return -1;
 	}
 
-	size_t bytes_read;
+	size_t bytes_read = 0;
 
 	uint8_t *header = rom->header;
-	bytes_read = fread(header, 1, sizeof(header), file);
-	if (bytes_read != sizeof(header)) {
+	bytes_read = fread(header, 1, sizeof(rom->header), file);
+	if (bytes_read != sizeof(rom->header)) {
 		fprintf(stderr, "Failed to read header\n");
 		return -1;
 	}
@@ -29,7 +30,13 @@ int create_rom(FILE *file, rom_t *rom) {
 		return -1;
 	}
 
-	int has_trainer = header[6] & 0x4;
+    bool is_nes_2_0 = (header[7] & 0xC) == 0x8;
+    if (is_nes_2_0) {
+        fprintf(stderr, "NES 2.0 ROMs are not currently supported\n");
+        return -1;
+    }
+
+	bool has_trainer = header[6] & 0x4;
 	if (has_trainer) {
 		size_t trainer_size = 512;
 		rom->trainer = malloc(trainer_size);
@@ -58,7 +65,12 @@ int create_rom(FILE *file, rom_t *rom) {
 		return -1;
 	}
 
-	int is_playchoice_10 = header[7] & 0x2;
+    rom->prg_ram_size = header[8] * 8192;
+    if (rom->prg_ram_size == 0) {
+        rom->prg_ram_size = 8192;
+    }
+
+	bool is_playchoice_10 = header[7] & 0x2;
 	if (is_playchoice_10) {
 		printf("Ignoring Playchoice 10 data\n");
 		if (fseek(file, 8192 + 16 + 16, SEEK_CUR) != 0) {
@@ -67,7 +79,7 @@ int create_rom(FILE *file, rom_t *rom) {
 		}
 	}
 
-	long int end_pos = ftell(file);
+	long end_pos = ftell(file);
 	if (end_pos == -1L) {
 		perror("ftell");
 		return -1;
@@ -78,7 +90,7 @@ int create_rom(FILE *file, rom_t *rom) {
 		return -1;
 	}
 
-	long int eof_pos = ftell(file);
+	long eof_pos = ftell(file);
 	if (eof_pos != end_pos) {
 		fprintf(stderr, "Warning: %ld extra bytes at end of file\n", eof_pos - end_pos);
 		return 0;
@@ -121,6 +133,9 @@ int main(int argc, char **argv) {
 	}
 
 	printf("trainer: %d\nprg size: %zu\nchr size: %zu\n", rom.trainer != NULL, rom.prg_size, rom.chr_size);
+
+    init_nes(&rom);
+    return 0;
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
 		fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());

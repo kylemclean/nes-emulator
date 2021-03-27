@@ -17,6 +17,9 @@ typedef struct {
 
 typedef struct {
 	cpu_regfile_t regfile;
+    uint64_t cycles;
+    uint8_t just_branched;
+    uint8_t just_wrote;
 	uint8_t ram[2048];
 } cpu_t;
 

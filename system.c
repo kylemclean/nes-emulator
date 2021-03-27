@@ -119,11 +119,14 @@ uint8_t *mem(uint16_t addr, nes_t *nes, int write) {
 }
 
 uint8_t mem_read(uint16_t addr, nes_t *nes) {
-	return *mem(addr, nes, 0);
+	++nes->cpu.cycles;
+    return *mem(addr, nes, 0);
 }
 
 void mem_write(uint16_t addr, uint8_t value, nes_t *nes) {
-	*mem(addr, nes, 1) = value;
+    ++nes->cpu.cycles;
+    nes->cpu.just_wrote = 1;
+    *mem(addr, nes, 1) = value;
 }
 
 void push(uint8_t value, nes_t *nes) {
@@ -133,6 +136,7 @@ void push(uint8_t value, nes_t *nes) {
 
 uint8_t pull(nes_t *nes) {
     nes->cpu.regfile.s += 1;
+    ++nes->cpu.cycles;
     return mem_read(nes->cpu.regfile.s, nes);
 }
 
@@ -204,11 +208,21 @@ void and(uint8_t arg, nes_t *nes) {
     change_zero(nes->cpu.regfile.a == 0, nes);
 }
 
-void asl(uint8_t *target, nes_t *nes) {
-    change_carry(*target >> 7, nes);
-    *target <<= 1;
-    change_negative(*target >> 7, nes);
-    change_zero(*target == 0, nes);
+uint8_t asl(uint8_t old, nes_t *nes) {
+    uint8_t new = old << 1;
+    change_negative(new >> 7, nes);
+    change_zero(new == 0, nes);
+    change_carry(old >> 7, nes);
+    return new;
+}
+
+void asl_a(nes_t *nes) {
+    nes->cpu.regfile.a = asl(nes->cpu.regfile.a, nes);
+}
+
+void asl_mem(uint16_t addr, nes_t *nes) {
+    mem_write(addr, asl(mem_read(addr, nes), nes), nes);
+    ++nes->cpu.cycles;
 }
 
 void bcc(uint8_t arg, nes_t *nes) {
@@ -258,6 +272,7 @@ void brk(nes_t *nes) {
     push((uint8_t) nes->cpu.regfile.pc, nes);
     push(nes->cpu.regfile.p, nes);
     nes->cpu.regfile.pc = irq_vector(nes);
+    nes->cpu.just_branched = 1;
 }
 
 void bvc(uint8_t arg, nes_t *nes) {
@@ -306,18 +321,24 @@ void cpy(uint8_t arg, nes_t *nes) {
     compare(nes->cpu.regfile.y, arg, nes);
 }
 
-void dec(uint8_t *target, nes_t *nes) {
-    *target -= 1;
-    change_negative(*target >> 7, nes);
-    change_zero(*target == 0, nes);
+void dec(uint16_t addr, nes_t *nes) {
+    uint8_t new = mem_read(addr, nes) - 1;
+    ++nes->cpu.cycles;
+    mem_write(addr, new, nes);
+    change_negative(new >> 7, nes);
+    change_zero(new == 0, nes);
 }
 
 void dex(nes_t *nes) {
-    dec(&nes->cpu.regfile.x, nes);
+    --nes->cpu.regfile.x;
+    change_negative(nes->cpu.regfile.x >> 7, nes);
+    change_zero(nes->cpu.regfile.x == 0, nes);
 }
 
 void dey(nes_t *nes) {
-    dec(&nes->cpu.regfile.y, nes);
+    --nes->cpu.regfile.y;
+    change_negative(nes->cpu.regfile.y >> 7, nes);
+    change_zero(nes->cpu.regfile.y == 0, nes);
 }
 
 void eor(uint8_t arg, nes_t *nes) {
@@ -326,22 +347,29 @@ void eor(uint8_t arg, nes_t *nes) {
     change_zero(nes->cpu.regfile.a == 0, nes);
 }
 
-void inc(uint8_t *target, nes_t *nes) {
-    *target += 1;
-    change_negative(*target >> 7, nes);
-    change_zero(*target == 0, nes);
+void inc(uint16_t addr, nes_t *nes) {
+    uint8_t new = mem_read(addr, nes) + 1;
+    ++nes->cpu.cycles;
+    mem_write(addr, new, nes);
+    change_negative(new >> 7, nes);
+    change_zero(new == 0, nes);
 }
 
 void inx(nes_t *nes) {
-    inc(&nes->cpu.regfile.x, nes);
+    ++nes->cpu.regfile.x;
+    change_negative(nes->cpu.regfile.x >> 7, nes);
+    change_zero(nes->cpu.regfile.x == 0, nes);
 }
 
 void iny(nes_t *nes) {
-    inc(&nes->cpu.regfile.y, nes);
+    ++nes->cpu.regfile.y;
+    change_negative(nes->cpu.regfile.y >> 7, nes);
+    change_zero(nes->cpu.regfile.y == 0, nes);
 }
 
 void jmp(uint16_t target, nes_t *nes) {
     nes->cpu.regfile.pc = target;
+    nes->cpu.just_branched = 1;
 }
 
 void jsr(uint16_t target, nes_t *nes) {
@@ -349,6 +377,8 @@ void jsr(uint16_t target, nes_t *nes) {
     push((uint8_t) (pc_plus_2 >> 8), nes);
     push((uint8_t) pc_plus_2, nes);
     nes->cpu.regfile.pc = target;
+    nes->cpu.just_branched = 1;
+    ++nes->cpu.cycles;
 }
 
 void load(uint8_t *target, uint8_t arg, nes_t *nes) {
@@ -369,11 +399,21 @@ void ldy(uint8_t arg, nes_t *nes) {
     load(&nes->cpu.regfile.y, arg, nes);
 }
 
-void lsr(uint8_t *target, nes_t *nes) {
-    change_carry(*target & 1, nes);
-    *target >>= 1;
+uint8_t lsr(uint8_t old, nes_t *nes) {
+    uint8_t new = old >> 1;
     change_negative(0, nes);
-    change_zero(*target == 0, nes);
+    change_zero(new == 0, nes);
+    change_carry(old & 1, nes);
+    return new;
+}
+
+void lsr_a(nes_t *nes) {
+    nes->cpu.regfile.a = lsr(nes->cpu.regfile.a, nes);
+}
+
+void lsr_mem(uint16_t addr, nes_t *nes) {
+    mem_write(addr, lsr(mem_read(addr, nes), nes), nes);
+    ++nes->cpu.cycles;
 }
 
 void nop(nes_t *nes) {
@@ -404,29 +444,50 @@ void plp(nes_t *nes) {
     nes->cpu.regfile.p = pull(nes);
 }
 
-void rol(uint8_t *target, nes_t *nes) {
-    uint8_t new_carry = *target >> 7;
-    *target = (*target << 1) | get_carry(nes);
-    change_negative(*target >> 7, nes);
-    change_zero(*target == 0, nes);
-    change_carry(new_carry, nes);
+uint8_t rol(uint8_t old, nes_t *nes) {
+    uint8_t new = (old << 1) | get_carry(nes);
+    change_negative(new >> 7, nes);
+    change_zero(new == 0, nes);
+    change_carry(old >> 7, nes);
+    return new;
 }
 
-void ror(uint8_t *target, nes_t *nes) {
-    uint8_t new_carry = *target & 1;
-    *target = (*target >> 1) | (get_carry(nes) << 7);
-    change_negative(*target >> 7, nes);
-    change_zero(*target == 0, nes);
-    change_carry(new_carry, nes);
+void rol_a(nes_t *nes) {
+    nes->cpu.regfile.a = rol(nes->cpu.regfile.a, nes);
+}
+
+void rol_mem(uint16_t addr, nes_t *nes) {
+    mem_write(addr, rol(mem_read(addr, nes), nes), nes);
+    ++nes->cpu.cycles;
+}
+
+uint8_t ror(uint8_t old, nes_t *nes) {
+    uint8_t new = (old >> 1) | (get_carry(nes) << 7);
+    change_negative(new >> 7, nes);
+    change_zero(new == 0, nes);
+    change_carry(old & 1, nes);
+    return new;
+}
+
+void ror_a(nes_t *nes) {
+    nes->cpu.regfile.a = ror(nes->cpu.regfile.a, nes);
+}
+
+void ror_mem(uint16_t addr, nes_t *nes) {
+    mem_write(addr, ror(mem_read(addr, nes), nes), nes);
+    ++nes->cpu.cycles;
 }
 
 void rti(nes_t *nes) {
     nes->cpu.regfile.p = pull(nes);
     nes->cpu.regfile.pc = pull(nes) | (pull(nes) << 8);
+    nes->cpu.just_branched = 1;
 }
 
 void rts(nes_t *nes) {
     nes->cpu.regfile.pc = (pull(nes) | (pull(nes) << 8)) + 1;
+    nes->cpu.just_branched = 1;
+    ++nes->cpu.cycles;
 }
 
 void sbc(uint8_t arg, nes_t *nes) {
@@ -445,16 +506,16 @@ void sei(nes_t *nes) {
     change_interrupt_disable(1, nes);
 }
 
-void sta(uint8_t *target, nes_t *nes) {
-    *target = nes->cpu.regfile.a;
+void sta(uint16_t addr, nes_t *nes) {
+    mem_write(addr, nes->cpu.regfile.a, nes);
 }
 
-void stx(uint8_t *target, nes_t *nes) {
-    *target = nes->cpu.regfile.x;
+void stx(uint16_t addr, nes_t *nes) {
+    mem_write(addr, nes->cpu.regfile.x, nes);
 }
 
-void sty(uint8_t *target, nes_t *nes) {
-    *target = nes->cpu.regfile.y;
+void sty(uint16_t addr, nes_t *nes) {
+    mem_write(addr, nes->cpu.regfile.y, nes);
 }
 
 void tax(nes_t *nes) {
@@ -493,6 +554,143 @@ void tya(nes_t *nes) {
     change_zero(nes->cpu.regfile.a == 0, nes);
 }
 
+typedef enum {
+    ERROR = -1, ACCUMULATOR, IMPLIED, IMMEDIATE, RELATIVE, ABSOLUTE, ZERO_PAGE,
+    INDIRECT, ABSOLUTE_X, ABSOLUTE_Y, ZERO_PAGE_X, ZERO_PAGE_Y,
+    ZERO_PAGE_X_INDIRECT, ZERO_PAGE_INDIRECT_Y
+} address_mode_t;
+
+address_mode_t get_address_mode(uint8_t opcode) {
+    if (opcode == 0x20) {
+        // JSR
+        return ABSOLUTE;
+    }
+    uint8_t aaa = opcode >> 5;
+    uint8_t bbb = ((opcode >> 2) & 7);
+    uint8_t cc = opcode & 3;
+    if (cc == 1) {
+        switch (bbb) {
+            case 0:
+                return ZERO_PAGE_X_INDIRECT;
+            case 1:
+                return ZERO_PAGE;
+            case 2:
+                return IMMEDIATE;
+            case 3:
+                return ABSOLUTE;
+            case 4:
+                return ZERO_PAGE_INDIRECT_Y;
+            case 5:
+                return ZERO_PAGE_X;
+            case 6:
+                return ABSOLUTE_X;
+            case 7:
+                return ABSOLUTE_Y;
+        }
+    }
+    if (cc == 2) {
+        switch (bbb) {
+            case 0:
+                return IMMEDIATE;
+            case 1:
+                return ZERO_PAGE;
+            case 2:
+                return ACCUMULATOR;
+            case 3:
+                return ABSOLUTE;
+            case 5:
+                return (aaa == 4 || aaa == 5) ? ZERO_PAGE_Y : ZERO_PAGE_X;
+            case 7:
+                return (aaa == 4 || aaa == 5) ? ABSOLUTE_Y : ABSOLUTE_X;
+        }
+    }
+    if (cc == 0) {
+        switch (bbb) {
+            case 0:
+                return IMMEDIATE;
+            case 1:
+                return ZERO_PAGE;
+            case 3:
+                return ABSOLUTE;
+            case 5:
+                return ZERO_PAGE_X;
+            case 7:
+                return ABSOLUTE_X;
+        }
+    }
+    return ERROR;
+}
+
+uint16_t actual_address(address_mode_t address_mode, nes_t *nes) {
+    uint16_t argp = nes->cpu.regfile.pc + 1;
+    switch (address_mode) {
+        case ACCUMULATOR:
+        case IMPLIED:
+            return 0; // not relevant
+        case IMMEDIATE:
+            return argp;
+        case RELATIVE:
+            return nes->cpu.regfile.pc + mem_read(argp, nes);
+        case ABSOLUTE:
+            return mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8);
+        case ZERO_PAGE:
+            return mem_read(argp, nes);
+        case INDIRECT: {
+            uint16_t addr_of_addr = mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8);
+            return mem_read(addr_of_addr, nes) | (((uint16_t) mem_read(addr_of_addr +  1, nes)) << 8);
+        }
+        case ABSOLUTE_X:
+            return (mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8)) + nes->cpu.regfile.x;
+        case ABSOLUTE_Y:
+            return (mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8)) + nes->cpu.regfile.y;
+        case ZERO_PAGE_X:
+            return mem_read(argp, nes) + nes->cpu.regfile.x;
+        case ZERO_PAGE_Y:
+            return mem_read(argp, nes) + nes->cpu.regfile.y;
+        case ZERO_PAGE_X_INDIRECT: {
+            uint16_t addr_of_addr = mem_read(argp, nes) + nes->cpu.regfile.x;
+            return mem_read(addr_of_addr, nes) | (((uint16_t) mem_read(addr_of_addr + 1, nes)) << 8);
+        }
+        case ZERO_PAGE_INDIRECT_Y: {
+            uint16_t addr_of_addr = mem_read(argp, nes);
+            return (mem_read(addr_of_addr, nes) | (((uint16_t) mem_read(addr_of_addr + 1, nes)) << 8)) + nes->cpu.regfile.y;
+        }
+        default: {
+            fprintf(stderr, "Unknown address_mode %d\n", address_mode);
+            return 0;
+        }
+    }
+}
+
+uint8_t get_instruction_size(uint8_t opcode) {
+    if (opcode == 0x00) {
+        // BRK
+        return 7;
+    }
+    
+    address_mode_t address_mode = get_address_mode(opcode);
+    switch (address_mode) {
+        case IMPLIED:
+        case ACCUMULATOR:
+            return 1;
+        case IMMEDIATE:
+        case RELATIVE:
+        case ZERO_PAGE:
+        case ZERO_PAGE_X:
+        case ZERO_PAGE_Y:
+        case ZERO_PAGE_X_INDIRECT:
+        case ZERO_PAGE_INDIRECT_Y:
+            return 2;
+        case ABSOLUTE:
+        case ABSOLUTE_X:
+        case ABSOLUTE_Y:
+        case INDIRECT:
+            return 3;
+        default:
+            return 0;
+    }
+}
+
 void run(rom_t *rom) {
 	nes_t nes;
     
@@ -506,6 +704,8 @@ void run(rom_t *rom) {
     nes.cpu.regfile.y = 0;
     nes.cpu.regfile.p = 0xFD;
     nes.cpu.regfile.pc = reset_vector(&nes);
+    nes.cpu.cycles = 0;
+    nes.cpu.just_branched = 0;
 
     mem_write(0x4017, 0, &nes);
     mem_write(0x4015, 0, &nes);
@@ -524,14 +724,250 @@ void run(rom_t *rom) {
     nes.apu.regfile.status = 0;
 
     for (;;) {
-        uint8_t opcode = mem_read(nes.cpu.regfile.pc, &nes);
+        uint16_t instruction_addr = nes.cpu.regfile.pc;
+        uint8_t opcode = mem_read(instruction_addr, &nes);
         
+        address_mode_t address_mode = get_address_mode(opcode);
+        uint16_t address;
+        if (address_mode >= IMMEDIATE) {
+            address = actual_address(address_mode, &nes);
+        }
+
+        uint8_t instruction_size = get_instruction_size(opcode); 
+
         if ((opcode & 0x3) == 1) {
             switch (opcode >> 5) {
                 case 0:
-                                 
+                    ora(mem_read(address, &nes), &nes);
+                    break;
+                case 1:
+                    and(mem_read(address, &nes), &nes);
+                    break;
+                case 2:
+                    eor(mem_read(address, &nes), &nes);
+                    break;
+                case 3:
+                    adc(mem_read(address, &nes), &nes);
+                    break;
+                case 4:
+                    sta(address, &nes);
+                    break;
+                case 5:
+                    lda(mem_read(address, &nes), &nes);
+                    break;
+                case 6:
+                    cmp(mem_read(address, &nes), &nes);
+                    break;
+                case 7:
+                    sbc(mem_read(address, &nes), &nes);
+                    break;
+            }
+        } else if ((opcode & 0x3) == 2) {
+            switch (opcode >> 5) {
+                case 0: {
+                    if (address_mode == ACCUMULATOR) {
+                        asl_a(&nes);
+                    } else {
+                        asl_mem(address, &nes);
+                    }
+                    break;
+                }
+                case 1: {
+                    if (address_mode == ACCUMULATOR) {
+                        rol_a(&nes);
+                    } else {
+                        rol_mem(address, &nes);
+                    }
+                    break;
+                }
+                case 2: {
+                    if (address_mode == ACCUMULATOR) {
+                        lsr_a(&nes);
+                    } else {
+                        lsr_mem(address, &nes);
+                    }
+                    break;
+                }
+                case 3: {
+                    if (address_mode == ACCUMULATOR) {
+                        ror_a(&nes);
+                    } else {
+                        ror_mem(address, &nes);
+                    }
+                    break;
+                }
+                case 4:
+                    stx(address, &nes);
+                    break;
+                case 5:
+                    ldx(mem_read(address, &nes), &nes);
+                    break;
+                case 6:
+                    dec(address, &nes);
+                    break;
+                case 7:
+                    inc(address, &nes);
+                    break;
+            }
+        } else if ((opcode & 0x1) == 0) {
+            switch (opcode >> 3) {
+                case 1:
+                    bit(mem_read(address, &nes), &nes);
+                    break;
+                case 2:
+                case 3:
+                    jmp(address, &nes);
+                    break;
+                case 4:
+                    sty(address, &nes);
+                    break;
+                case 5:
+                    ldy(mem_read(address, &nes), &nes);
+                    break;
+                case 6:
+                    cpy(mem_read(address, &nes), &nes);
+                    break;
+                case 7:
+                    cpx(mem_read(address, &nes), &nes);
+                    break;
+            }
+        } else {
+            switch (opcode) {
+                case 0x10:
+                    bpl(mem_read(address, &nes), &nes);
+                    break;
+                case 0x30:
+                    bmi(mem_read(address, &nes), &nes);
+                    break;
+                case 0x50:
+                    bvc(mem_read(address, &nes), &nes);
+                    break;
+                case 0x70:
+                    bvs(mem_read(address, &nes), &nes);
+                    break;
+                case 0x90:
+                    bcc(mem_read(address, &nes), &nes);
+                    break;
+                case 0xB0:
+                    bcs(mem_read(address, &nes), &nes);
+                    break;
+                case 0xD0:
+                    bne(mem_read(address, &nes), &nes);
+                    break;
+                case 0xF0:
+                    beq(mem_read(address, &nes), &nes);
+                    break;
+                case 0x00:
+                    brk(&nes);
+                    break;
+                case 0x20:
+                    jsr(address, &nes);
+                    break;
+                case 0x40:
+                    rti(&nes);
+                    break;
+                case 0x60:
+                    rts(&nes);
+                    break;
+                case 0x08:
+                    php(&nes);
+                    break;
+                case 0x28:
+                    plp(&nes);
+                    break;
+                case 0x48:
+                    pha(&nes);
+                    break;
+                case 0x68:
+                    pla(&nes);
+                    break;
+                case 0x88:
+                    dey(&nes);
+                    break;
+                case 0xA8:
+                    tay(&nes);
+                    break;
+                case 0xC8:
+                    iny(&nes);
+                    break;
+                case 0xE8:
+                    inx(&nes);
+                    break;
+                case 0x18:
+                    clc(&nes);
+                    break;
+                case 0x38:
+                    sec(&nes);
+                    break;
+                case 0x58:
+                    cli(&nes);
+                    break;
+                case 0x78:
+                    sei(&nes);
+                    break;
+                case 0x98:
+                    tya(&nes);
+                    break;
+                case 0xB8:
+                    clv(&nes);
+                    break;
+                case 0xD8:
+                    cld(&nes);
+                    break;
+                case 0xF8:
+                    sed(&nes);
+                    break;
+                case 0x8A:
+                    txa(&nes);
+                    break;
+                case 0x9A:
+                    txs(&nes);
+                    break;
+                case 0xAA:
+                    tax(&nes);
+                    break;
+                case 0xBA:
+                    tsx(&nes);
+                    break;
+                case 0xCA:
+                    dex(&nes);
+                    break;
+                case 0xEA:
+                    nop(&nes);
+                    break;
             }
         }
+        
+        if (!nes.cpu.just_branched) {
+            nes.cpu.regfile.pc += instruction_size;
+        }
+
+        if (instruction_size == 1) {
+            // Single-byte instructions burn a cycle reading the next byte
+            ++nes.cpu.cycles;
+        }
+        if (address_mode == ZERO_PAGE_X || address_mode == ZERO_PAGE_Y || address_mode == ZERO_PAGE_X_INDIRECT) {
+            // Burns a cycle reading the unindexed zero page address
+            ++nes.cpu.cycles;
+        }
+        if (address_mode == ABSOLUTE_X || address_mode == ABSOLUTE_Y || address_mode == ZERO_PAGE_INDIRECT_Y) {
+            if ((instruction_addr & 0xFF00) != (address & 0xFF00) || nes.cpu.just_wrote) {
+                // Takes an extra cycle when crossing page boundary or writing
+                ++nes.cpu.cycles;
+            }
+        }
+        if (nes.cpu.just_branched && (opcode & 0x1F) == 0x10) {
+            // Took a conditional branch
+            // Branch takes a cycle
+            ++nes.cpu.cycles;
+            if ((nes.cpu.regfile.pc & 0xFF00) != (instruction_addr & 0xFF00)) {
+                // Takes another cycle when crossing page boundary
+                ++nes.cpu.cycles;
+            }
+        }
+
+        nes.cpu.just_branched = 0;
+        nes.cpu.just_wrote = 0;
     }
 }
 

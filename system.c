@@ -742,7 +742,7 @@ uint8_t get_instruction_size(uint8_t opcode) {
 }
 
 void print_registers(cpu_regfile_t *regfile) {
-    printf("A=%02X, X=%02X, Y=%02X, S=%02X, P=%02X, PC=%04X\n", regfile->a, regfile->x, regfile->y, regfile->s, regfile->p, regfile->pc);
+    printf("A=%02X, X=%02X, Y=%02X, S=%02X, P=%02X (N=%d, V=%d, D=%d, I=%d, Z=%d, C=%d), PC=%04X\n", regfile->a, regfile->x, regfile->y, regfile->s, regfile->p, !!(regfile->p & 0x80), !!(regfile->p & 0x40), !!(regfile->p & 0x08), !!(regfile->p & 0x04), !!(regfile->p & 0x02), !!(regfile->p & 0x01), regfile->pc);
 }
 
 #ifdef DEBUG
@@ -757,11 +757,11 @@ void init_nes(rom_t *rom) {
     
     nes.sram.size = rom->prg_ram_size;
 
-    nes.cpu.regfile.s = 0x34;
+    nes.cpu.regfile.p = 0x34;
     nes.cpu.regfile.a = 0;
     nes.cpu.regfile.x = 0;
     nes.cpu.regfile.y = 0;
-    nes.cpu.regfile.p = 0xFD;
+    nes.cpu.regfile.s = 0xFD;
     nes.cpu.regfile.pc = reset_vector(&nes);
     nes.cpu.cycles = 0;
     nes.cpu.just_branched = 0;

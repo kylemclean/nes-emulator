@@ -199,7 +199,8 @@ void change_carry(uint8_t c, nes_t *nes) {
     change_bit(&nes->cpu.regfile.p, 0, c);
 }
 
-void adc(uint8_t arg, nes_t *nes) {
+void adc(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     uint8_t a = nes->cpu.regfile.a;
     uint16_t sum = a + arg + get_carry(nes);
     change_negative((sum >> 7) & 1, nes);
@@ -209,13 +210,14 @@ void adc(uint8_t arg, nes_t *nes) {
     nes->cpu.regfile.a = (uint8_t) sum;
 }
 
-void and(uint8_t arg, nes_t *nes) {
+void and(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     nes->cpu.regfile.a &= arg;
     change_negative(nes->cpu.regfile.a >> 7, nes);
     change_zero(nes->cpu.regfile.a == 0, nes);
 }
 
-uint8_t asl(uint8_t old, nes_t *nes) {
+uint8_t asl_impl(uint8_t old, nes_t *nes) {
     uint8_t new = old << 1;
     change_negative(new >> 7, nes);
     change_zero(new == 0, nes);
@@ -224,7 +226,7 @@ uint8_t asl(uint8_t old, nes_t *nes) {
 }
 
 void asl_a(nes_t *nes) {
-    nes->cpu.regfile.a = asl(nes->cpu.regfile.a, nes);
+    nes->cpu.regfile.a = asl_impl(nes->cpu.regfile.a, nes);
 }
 
 void asl_mem(uint16_t addr, nes_t *nes) {
@@ -232,48 +234,55 @@ void asl_mem(uint16_t addr, nes_t *nes) {
     ++nes->cpu.cycles;
 }
 
-void bcc(uint8_t arg, nes_t *nes) {
+void bcc(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (!get_carry(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
     }
 }
 
-void bcs(uint8_t arg, nes_t *nes) {
+void bcs(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (get_carry(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
     }
 }
 
-void beq(uint8_t arg, nes_t *nes) {
+void beq(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (get_zero(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
     }
 }
 
-void bit(uint8_t arg, nes_t *nes) {
+void bit(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     change_negative(arg >> 7, nes);
     change_overflow((arg >> 6) & 1, nes);
     change_zero((arg & nes->cpu.regfile.a) == 0, nes);
 }
 
-void bmi(uint8_t arg, nes_t *nes) {
+void bmi(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (get_negative(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
     }
 }
 
-void bne(uint8_t arg, nes_t *nes) {
+void bne(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (!get_zero(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
     }
 }
 
-void bpl(uint8_t arg, nes_t *nes) {
+void bpl(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (!get_negative(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
@@ -288,14 +297,16 @@ void brk(nes_t *nes) {
     nes->cpu.just_branched = 1;
 }
 
-void bvc(uint8_t arg, nes_t *nes) {
+void bvc(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (!get_overflow(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
     }
 }
 
-void bvs(uint8_t arg, nes_t *nes) {
+void bvs(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     if (get_overflow(nes)) {
         nes->cpu.regfile.pc += (int8_t) arg;
         nes->cpu.just_branched = 1;
@@ -324,15 +335,18 @@ void compare(uint8_t lhs, uint8_t rhs, nes_t *nes) {
     change_carry(lhs >= rhs, nes);
 }
 
-void cmp(uint8_t arg, nes_t *nes) {
+void cmp(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     compare(nes->cpu.regfile.a, arg, nes);
 }
    
-void cpx(uint8_t arg, nes_t *nes) {
+void cpx(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     compare(nes->cpu.regfile.x, arg, nes);
 }
 
-void cpy(uint8_t arg, nes_t *nes) {
+void cpy(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     compare(nes->cpu.regfile.y, arg, nes);
 }
 
@@ -356,7 +370,8 @@ void dey(nes_t *nes) {
     change_zero(nes->cpu.regfile.y == 0, nes);
 }
 
-void eor(uint8_t arg, nes_t *nes) {
+void eor(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     nes->cpu.regfile.a ^= arg;
     change_negative(nes->cpu.regfile.a >> 7, nes);
     change_zero(nes->cpu.regfile.a == 0, nes);
@@ -396,21 +411,25 @@ void jsr(uint16_t target, nes_t *nes) {
     ++nes->cpu.cycles;
 }
 
-void load(uint8_t *target, uint8_t arg, nes_t *nes) {
+void load(uint8_t *target, uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     *target = arg;
     change_negative(*target >> 7, nes);
     change_zero(*target == 0, nes);
 }
 
-void lda(uint8_t arg, nes_t *nes) {
+void lda(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     load(&nes->cpu.regfile.a, arg, nes);   
 }
 
-void ldx(uint8_t arg, nes_t *nes) {
+void ldx(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     load(&nes->cpu.regfile.x, arg, nes);
 }
 
-void ldy(uint8_t arg, nes_t *nes) {
+void ldy(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     load(&nes->cpu.regfile.y, arg, nes);
 }
 
@@ -435,7 +454,8 @@ void nop(nes_t *nes) {
 
 }
 
-void ora(uint8_t arg, nes_t *nes) {
+void ora(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     nes->cpu.regfile.a |= arg;
     change_negative(nes->cpu.regfile.a >> 7, nes);
     change_zero(nes->cpu.regfile.a == 0, nes);
@@ -505,7 +525,8 @@ void rts(nes_t *nes) {
     ++nes->cpu.cycles;
 }
 
-void sbc(uint8_t arg, nes_t *nes) {
+void sbc(uint16_t addr, nes_t *nes) {
+    uint8_t arg = mem_read(addr, nes);
     adc(~arg, nes);
 }
 
@@ -575,101 +596,7 @@ typedef enum {
     ZERO_PAGE_X_INDIRECT, ZERO_PAGE_INDIRECT_Y
 } address_mode_t;
 
-address_mode_t get_address_mode(uint8_t opcode) {
-    if (opcode == 0x20) {
-        // JSR
-        return ABSOLUTE;
-    }
-    if (opcode == 0x40
-            || opcode == 0x60
-            || opcode == 0x08
-            || opcode == 0x28
-            || opcode == 0x48
-            || opcode == 0x88
-            || opcode == 0xA8
-            || opcode == 0xC8
-            || opcode == 0xE8
-            || opcode == 0x18
-            || opcode == 0x38
-            || opcode == 0x58
-            || opcode == 0x78
-            || opcode == 0x98
-            || opcode == 0xB8
-            || opcode == 0xD8
-            || opcode == 0xF8
-            || opcode == 0x8A
-            || opcode == 0x9A
-            || opcode == 0xAA
-            || opcode == 0xBA
-            || opcode == 0xCA
-            || opcode == 0xEA) {
-        return IMPLIED;
-    } else if ((opcode & 0x1F) == 0x10) {
-        // Conditional branch instructions
-        return RELATIVE;
-    } else if (opcode == 0x00) {
-        // BRK
-        return IMPLIED;
-    } else if (opcode == 0x20) {
-        // JSR
-        return ABSOLUTE;
-    }
 
-    uint8_t aaa = opcode >> 5;
-    uint8_t bbb = ((opcode >> 2) & 7);
-    uint8_t cc = opcode & 3;
-    if (cc == 1) {
-        switch (bbb) {
-            case 0:
-                return ZERO_PAGE_X_INDIRECT;
-            case 1:
-                return ZERO_PAGE;
-            case 2:
-                return IMMEDIATE;
-            case 3:
-                return ABSOLUTE;
-            case 4:
-                return ZERO_PAGE_INDIRECT_Y;
-            case 5:
-                return ZERO_PAGE_X;
-            case 6:
-                return ABSOLUTE_Y;
-            case 7:
-                return ABSOLUTE_X;
-        }
-    }
-    if (cc == 2) {
-        switch (bbb) {
-            case 0:
-                return IMMEDIATE;
-            case 1:
-                return ZERO_PAGE;
-            case 2:
-                return ACCUMULATOR;
-            case 3:
-                return ABSOLUTE;
-            case 5:
-                return (aaa == 4 || aaa == 5) ? ZERO_PAGE_Y : ZERO_PAGE_X;
-            case 7:
-                return (aaa == 4 || aaa == 5) ? ABSOLUTE_Y : ABSOLUTE_X;
-        }
-    }
-    if (cc == 0) {
-        switch (bbb) {
-            case 0:
-                return IMMEDIATE;
-            case 1:
-                return ZERO_PAGE;
-            case 3:
-                return ABSOLUTE;
-            case 5:
-                return ZERO_PAGE_X;
-            case 7:
-                return ABSOLUTE_X;
-        }
-    }    
-    return ERROR;
-}
 
 uint16_t actual_address(address_mode_t address_mode, nes_t *nes) {
     uint16_t argp = nes->cpu.regfile.pc + 1;
@@ -712,13 +639,81 @@ uint16_t actual_address(address_mode_t address_mode, nes_t *nes) {
     }
 }
 
+void print_registers(cpu_regfile_t *regfile) {
+    printf("A=%02X, X=%02X, Y=%02X, S=%02X, P=%02X (N=%d, V=%d, D=%d, I=%d, Z=%d, C=%d), PC=%04X\n", regfile->a, regfile->x, regfile->y, regfile->s, regfile->p, !!(regfile->p & 0x80), !!(regfile->p & 0x40), !!(regfile->p & 0x08), !!(regfile->p & 0x04), !!(regfile->p & 0x02), !!(regfile->p & 0x01), regfile->pc);
+}
+
+#ifdef DEBUG
+unsigned int sleep(unsigned int seconds);
+int usleep(unsigned int usec);
+#endif
+
+char *inst_mnemonics[256] = {
+    "BRK", "ORA", NULL, NULL, NULL, "ORA", "ASL", NULL, "PHP", "ORA", "ASL", NULL, NULL, "ORA", "ASL", NULL,
+    "BPL", "ORA", NULL, NULL, NULL, "ORA", "ASL", NULL, "CLC", "ORA", NULL, NULL, NULL, "ORA", "ASL", NULL,
+    "JSR", "AND", NULL, NULL, "BIT", "AND", "ROL", NULL, "PLP", "AND", "ROL", NULL, "BIT", "AND", "ROL", NULL,
+    "BMI", "AND", NULL, NULL, NULL, "AND", "ROL", NULL, "SEC", "AND", NULL, NULL, NULL, "AND", "ROL", NULL,
+    "RTI", "EOR", NULL, NULL, NULL, "EOR", "LSR", NULL, "PHA", "EOR", "LSR", NULL, "JMP", "EOR", "LSR", NULL,
+    "BVC", "EOR", NULL, NULL, NULL, "EOR", "LSR", NULL, "CLI", "EOR", NULL, NULL, NULL, "EOR", "LSR", NULL,
+    "RTS", "ADC", NULL, NULL, NULL, "ADC", "ROR", NULL, "PLA", "ADC", "ROR", NULL, "JMP", "ADC", "ROR", NULL,
+    "BVS", "ADC", NULL, NULL, NULL, "ADC", "ROR", NULL, "SEI", "ADC", NULL, NULL, NULL, "ADC", "ROR", NULL,
+    NULL, "STA", NULL, NULL, "STY", "STA", "STX", NULL, "DEY", NULL, "TXA", NULL, "STY", "STA", "STX", NULL,
+    "BCC", "STA", NULL, NULL, "STY", "STA", "STX", NULL, "TYA", "STA", "TXS", NULL, NULL, "STA", NULL, NULL,
+    "LDY", "LDA", "LDX", NULL, "LDY", "LDA", "LDX", NULL, "TAY", "LDA", "TAX", NULL, "LDY", "LDA", "LDX", NULL,
+    "BCS", "LDA", NULL, NULL, "LDY", "LDA", "LDX", NULL, "CLV", "LDA", "TSX", NULL, "LDY", "LDA", "LDX", NULL,
+    "CPY", "CMP", NULL, NULL, "CPY", "CMP", "DEC", NULL, "INY", "CMP", "DEX", NULL, "CPY", "CMP", "DEC", NULL,
+    "BNE", "CMP", NULL, NULL, NULL, "CMP", "DEC", NULL, "CLD", "CMP", NULL, NULL, NULL, "CMP", "DEC", NULL,
+    "CPX", "SBC", NULL, NULL, "CPX", "SBC", "INC", NULL, "INX", "SBC", "NOP", NULL, "CPX", "SBC", "INC", NULL,
+    "BEQ", "SBC", NULL, NULL, NULL, "SBC", "INC", NULL, "SED", "SBC", NULL, NULL, NULL, "SBC", "INC", NULL
+};
+
+address_mode_t inst_address_modes[256] = {
+    IMPLIED, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, ERROR, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    ABSOLUTE, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    IMPLIED, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    IMPLIED, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, INDIRECT, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    ERROR, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, ERROR, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ZERO_PAGE_Y, ERROR, IMPLIED, ABSOLUTE_Y, IMPLIED, ERROR, ERROR, ABSOLUTE_X, ERROR, ERROR,
+    IMMEDIATE, ZERO_PAGE_X_INDIRECT, IMMEDIATE, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ZERO_PAGE_Y, ERROR, IMPLIED, ABSOLUTE_Y, IMPLIED, ERROR, ABSOLUTE_X, ABSOLUTE_X, ABSOLUTE_Y, ERROR,
+    IMMEDIATE, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    IMMEDIATE, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR
+};
+
+typedef void (*inst_func_t)(uint16_t, nes_t *);
+
+inst_func_t inst_funcs[256] = {
+    brk, ora, NULL, NULL, NULL, ora, asl_mem, NULL, php, ora, asl_a, NULL, NULL, ora, asl_mem, NULL,
+    bpl, ora, NULL, NULL, NULL, ora, asl_mem, NULL, clc, ora, NULL, NULL, NULL, ora, asl_mem, NULL,
+    jsr, and, NULL, NULL, bit, and, rol_mem, NULL, plp, and, rol_a, NULL, bit, and, rol_mem, NULL,
+    bmi, and, NULL, NULL, NULL, and, rol_mem, NULL, sec, and, NULL, NULL, NULL, and, rol_mem, NULL,
+    rti, eor, NULL, NULL, NULL, eor, lsr_mem, NULL, pha, eor, lsr_a, NULL, jmp, eor, lsr_mem, NULL,
+    bvc, eor, NULL, NULL, NULL, eor, lsr_mem, NULL, cli, eor, NULL, NULL, NULL, eor, lsr_mem, NULL,
+    rts, adc, NULL, NULL, NULL, adc, ror_mem, NULL, pla, adc, ror_a, NULL, jmp, adc, ror_mem, NULL,
+    bvs, adc, NULL, NULL, NULL, adc, ror_mem, NULL, sei, adc, NULL, NULL, NULL, adc, ror_mem, NULL,
+    NULL, sta, NULL, NULL, sty, sta, stx, NULL, dey, NULL, txa, NULL, sty, sta, stx,  NULL,
+    bcc, sta, NULL, NULL, sty, sta, stx, NULL, tya, sta, txs, NULL, NULL, sta, NULL, NULL,
+    ldy, lda, ldx, NULL, ldy, lda, ldx, NULL, tay, lda, tax, NULL, ldy, lda, ldx, NULL,
+    bcs, lda, NULL, NULL, ldy, lda, ldx, NULL, clv, lda, tsx, NULL, ldy, lda, ldx, NULL,
+    cpy, cmp, NULL, NULL, cpy, cmp, dec, NULL, iny, cmp, dex, NULL, cpy, cmp, dec, NULL,
+    bne, cmp, NULL, NULL, NULL, cmp, dec, NULL, cld, cmp, NULL, NULL, NULL, cmp, dec, NULL,
+    cpx, sbc, NULL, NULL, cpx, sbc, inc, NULL, inx, sbc, nop, NULL, cpx, sbc, inc, NULL,
+    beq, sbc, NULL, NULL, NULL, sbc, inc, NULL, sed, sbc, NULL, NULL, NULL, sbc, inc, NULL
+};
+
 uint8_t get_instruction_size(uint8_t opcode) {
     if (opcode == 0x00) {
         // BRK
         return 7;
     }
     
-    address_mode_t address_mode = get_address_mode(opcode);
+    address_mode_t address_mode = inst_address_modes[opcode];
     switch (address_mode) {
         case IMPLIED:
         case ACCUMULATOR:
@@ -740,15 +735,6 @@ uint8_t get_instruction_size(uint8_t opcode) {
             return 0;
     }
 }
-
-void print_registers(cpu_regfile_t *regfile) {
-    printf("A=%02X, X=%02X, Y=%02X, S=%02X, P=%02X (N=%d, V=%d, D=%d, I=%d, Z=%d, C=%d), PC=%04X\n", regfile->a, regfile->x, regfile->y, regfile->s, regfile->p, !!(regfile->p & 0x80), !!(regfile->p & 0x40), !!(regfile->p & 0x08), !!(regfile->p & 0x04), !!(regfile->p & 0x02), !!(regfile->p & 0x01), regfile->pc);
-}
-
-#ifdef DEBUG
-unsigned int sleep(unsigned int seconds);
-int usleep(unsigned int usec);
-#endif
 
 void init_nes(rom_t *rom) {
 	nes_t nes;
@@ -788,7 +774,7 @@ void init_nes(rom_t *rom) {
         uint16_t instruction_addr = nes.cpu.regfile.pc;
         uint8_t opcode = mem_read(instruction_addr, &nes);
         
-        address_mode_t address_mode = get_address_mode(opcode);
+        address_mode_t address_mode = inst_address_modes[opcode];
         uint16_t address;
         if (address_mode >= IMMEDIATE) {
             address = actual_address(address_mode, &nes);
@@ -797,172 +783,15 @@ void init_nes(rom_t *rom) {
         uint8_t instruction_size = get_instruction_size(opcode); 
         printf("Instruction %02X is %d bytes long\n", opcode, instruction_size);
 
-        if (opcode == 0x10) {
-            bpl(address, &nes);
-        } else if (opcode == 0x30) {
-            bmi(address, &nes);
-        } else if (opcode == 0x50) {
-            bvc(address, &nes);
-        } else if (opcode == 0x70) {
-            bvs(address, &nes);
-        } else if (opcode == 0x90) {
-            bcc(address, &nes);
-        } else if (opcode == 0xB0) {
-            bcs(address, &nes);
-        } else if (opcode == 0xD0) {
-            bne(address, &nes);
-        } else if (opcode == 0xF0) {
-            beq(address, &nes);
-        } else if (opcode == 0x00) {
-            brk(&nes);
-        } else if (opcode == 0x20) {
-            jsr(address, &nes);
-        } else if (opcode == 0x40) {
-            rti(&nes);
-        } else if (opcode == 0x60) {
-            rts(&nes);
-        } else if (opcode == 0x08) {
-            php(&nes);
-        } else if (opcode == 0x28) {
-            plp(&nes);
-        } else if (opcode == 0x48) {
-            pha(&nes);
-        } else if (opcode == 0x68) {
-            pla(&nes);
-        } else if (opcode == 0x88) {
-            dey(&nes);
-        } else if (opcode == 0xA8) {
-            tay(&nes);
-        } else if (opcode == 0xC8) {
-            iny(&nes);
-        } else if (opcode == 0xE8) {
-            inx(&nes);
-        } else if (opcode == 0x18) {
-            clc(&nes);
-        } else if (opcode == 0x38) {
-            sec(&nes);
-        } else if (opcode == 0x58) {
-            cli(&nes);
-        } else if (opcode == 0x78) {
-            sei(&nes);
-        } else if (opcode == 0x98) {
-            tya(&nes);
-        } else if (opcode == 0xB8) {
-            clv(&nes);
-        } else if (opcode == 0xD8) {
-            cld(&nes);
-        } else if (opcode == 0xF8) {
-            sed(&nes);
-        } else if (opcode == 0x8A) {
-            txa(&nes);
-        } else if (opcode == 0x9A) {
-            txs(&nes);
-        } else if (opcode == 0xAA) {
-            tax(&nes);
-        } else if (opcode == 0xBA) {
-            tsx(&nes);
-        } else if (opcode == 0xCA) {
-            dex(&nes);
-        } else if (opcode == 0xEA) {
-            nop(&nes);
-        } else if ((opcode & 0x3) == 1) {
-            switch (opcode >> 5) {
-                case 0:
-                    ora(mem_read(address, &nes), &nes);
-                    break;
-                case 1:
-                    and(mem_read(address, &nes), &nes);
-                    break;
-                case 2:
-                    eor(mem_read(address, &nes), &nes);
-                    break;
-                case 3:
-                    adc(mem_read(address, &nes), &nes);
-                    break;
-                case 4:
-                    sta(address, &nes);
-                    break;
-                case 5:
-                    lda(mem_read(address, &nes), &nes);
-                    break;
-                case 6:
-                    cmp(mem_read(address, &nes), &nes);
-                    break;
-                case 7:
-                    sbc(mem_read(address, &nes), &nes);
-                    break;
-            }
-        } else if ((opcode & 0x3) == 2) {
-            switch (opcode >> 5) {
-                case 0: {
-                    if (address_mode == ACCUMULATOR) {
-                        asl_a(&nes);
-                    } else {
-                        asl_mem(address, &nes);
-                    }
-                    break;
-                }
-                case 1: {
-                    if (address_mode == ACCUMULATOR) {
-                        rol_a(&nes);
-                    } else {
-                        rol_mem(address, &nes);
-                    }
-                    break;
-                }
-                case 2: {
-                    if (address_mode == ACCUMULATOR) {
-                        lsr_a(&nes);
-                    } else {
-                        lsr_mem(address, &nes);
-                    }
-                    break;
-                }
-                case 3: {
-                    if (address_mode == ACCUMULATOR) {
-                        ror_a(&nes);
-                    } else {
-                        ror_mem(address, &nes);
-                    }
-                    break;
-                }
-                case 4:
-                    stx(address, &nes);
-                    break;
-                case 5:
-                    ldx(mem_read(address, &nes), &nes);
-                    break;
-                case 6:
-                    dec(address, &nes);
-                    break;
-                case 7:
-                    inc(address, &nes);
-                    break;
-            }
-        } else if ((opcode & 0x3) == 0) {
-            switch (opcode >> 5) {
-                case 1:
-                    bit(mem_read(address, &nes), &nes);
-                    break;
-                case 2:
-                case 3:
-                    jmp(address, &nes);
-                    break;
-                case 4:
-                    sty(address, &nes);
-                    break;
-                case 5:
-                    ldy(mem_read(address, &nes), &nes);
-                    break;
-                case 6:
-                    cpy(mem_read(address, &nes), &nes);
-                    break;
-                case 7:
-                    cpx(mem_read(address, &nes), &nes);
-                    break;
-            }
-        } else {
+        inst_func_t instruction_function = inst_funcs[opcode];
+        if (!instruction_function) {
             fprintf(stderr, "Unknown opcode %02X\n", opcode);
+        } else {
+            if (address_mode >= IMMEDIATE) {
+                instruction_function(address, &nes);
+            } else {
+                ((void (*)(nes_t *)) instruction_function)(&nes);
+            }
         }
 
         if (!nes.cpu.just_branched) {

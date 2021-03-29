@@ -736,6 +736,63 @@ uint8_t get_instruction_size(uint8_t opcode) {
     }
 }
 
+void instruction_disassembly(uint16_t ip, char *buf, size_t buf_size, nes_t *nes) {
+    uint8_t opcode = *mem(ip, nes, 0);
+
+    char *mnemonic = inst_mnemonics[opcode];
+    if (!mnemonic) {
+        snprintf(buf, buf_size, "???");
+        return;
+    }
+    
+    address_mode_t address_mode = inst_address_modes[opcode];
+
+    switch (address_mode) {
+        case IMPLIED:
+            snprintf(buf, buf_size, "%s", mnemonic);
+            break;
+        case ACCUMULATOR:
+            snprintf(buf, buf_size, "%s A", mnemonic);
+            break;
+        case IMMEDIATE:
+            snprintf(buf, buf_size, "%s #$%02X", mnemonic, *mem(ip + 1, nes, 0));
+            break;
+        case RELATIVE:
+            snprintf(buf, buf_size, "%s $04X", mnemonic, ip + (int8_t) *mem(ip + 1, nes, 0));
+            break;
+        case ZERO_PAGE:
+            snprintf(buf, buf_size, "%s $02X", mnemonic, *mem(ip + 1, nes, 0));
+            break;
+        case ZERO_PAGE_X:
+            snprintf(buf, buf_size, "%s $%02X,X", mnemonic, *mem(ip + 1, nes, 0));
+            break;
+        case ZERO_PAGE_Y:
+            snprintf(buf, buf_size, "%s $%02X,Y", mnemonic, *mem(ip + 1, nes, 0));
+            break;
+        case ZERO_PAGE_X_INDIRECT:
+            snprintf(buf, buf_size, "%s ($%02X,X)", mnemonic, *mem(ip + 1, nes, 0));
+            break;
+        case ZERO_PAGE_INDIRECT_Y:
+            snprintf(buf, buf_size, "%s ($%02X),Y", mnemonic, *mem(ip + 1, nes, 0));
+            break;
+        case ABSOLUTE:
+            snprintf(buf, buf_size, "%s $%04X", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+            break;
+        case ABSOLUTE_X:
+            snprintf(buf, buf_size, "%s $%04X,X", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+            break;
+        case ABSOLUTE_Y:
+            snprintf(buf, buf_size, "%s $%04X,Y", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+            break;
+        case INDIRECT:
+            snprintf(buf, buf_size, "%s ($%04X)", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+            break;
+        default:
+            snprintf(buf, buf_size, "%s ???", mnemonic);
+            break;
+    }
+}
+
 void init_nes(rom_t *rom) {
 	nes_t nes;
     

@@ -230,30 +230,27 @@ void asl_a(nes_t *nes) {
 }
 
 void asl_mem(uint16_t addr, nes_t *nes) {
-    mem_write(addr, asl(mem_read(addr, nes), nes), nes);
+    mem_write(addr, asl_impl(mem_read(addr, nes), nes), nes);
     ++nes->cpu.cycles;
 }
 
 void bcc(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (!get_carry(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
 
 void bcs(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (get_carry(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
 
 void beq(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (get_zero(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
@@ -266,25 +263,22 @@ void bit(uint16_t addr, nes_t *nes) {
 }
 
 void bmi(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (get_negative(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
 
 void bne(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (!get_zero(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
 
 void bpl(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (!get_negative(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
@@ -298,17 +292,15 @@ void brk(nes_t *nes) {
 }
 
 void bvc(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (!get_overflow(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
 
 void bvs(uint16_t addr, nes_t *nes) {
-    uint8_t arg = mem_read(addr, nes);
     if (get_overflow(nes)) {
-        nes->cpu.regfile.pc += (int8_t) arg;
+        nes->cpu.regfile.pc = addr;
         nes->cpu.just_branched = 1;
     }
 }
@@ -433,7 +425,7 @@ void ldy(uint16_t addr, nes_t *nes) {
     load(&nes->cpu.regfile.y, arg, nes);
 }
 
-uint8_t lsr(uint8_t old, nes_t *nes) {
+uint8_t lsr_impl(uint8_t old, nes_t *nes) {
     uint8_t new = old >> 1;
     change_negative(0, nes);
     change_zero(new == 0, nes);
@@ -442,11 +434,11 @@ uint8_t lsr(uint8_t old, nes_t *nes) {
 }
 
 void lsr_a(nes_t *nes) {
-    nes->cpu.regfile.a = lsr(nes->cpu.regfile.a, nes);
+    nes->cpu.regfile.a = lsr_impl(nes->cpu.regfile.a, nes);
 }
 
 void lsr_mem(uint16_t addr, nes_t *nes) {
-    mem_write(addr, lsr(mem_read(addr, nes), nes), nes);
+    mem_write(addr, lsr_impl(mem_read(addr, nes), nes), nes);
     ++nes->cpu.cycles;
 }
 
@@ -479,7 +471,7 @@ void plp(nes_t *nes) {
     nes->cpu.regfile.p = pull(nes);
 }
 
-uint8_t rol(uint8_t old, nes_t *nes) {
+uint8_t rol_impl(uint8_t old, nes_t *nes) {
     uint8_t new = (old << 1) | get_carry(nes);
     change_negative(new >> 7, nes);
     change_zero(new == 0, nes);
@@ -488,15 +480,15 @@ uint8_t rol(uint8_t old, nes_t *nes) {
 }
 
 void rol_a(nes_t *nes) {
-    nes->cpu.regfile.a = rol(nes->cpu.regfile.a, nes);
+    nes->cpu.regfile.a = rol_impl(nes->cpu.regfile.a, nes);
 }
 
 void rol_mem(uint16_t addr, nes_t *nes) {
-    mem_write(addr, rol(mem_read(addr, nes), nes), nes);
+    mem_write(addr, rol_impl(mem_read(addr, nes), nes), nes);
     ++nes->cpu.cycles;
 }
 
-uint8_t ror(uint8_t old, nes_t *nes) {
+uint8_t ror_impl(uint8_t old, nes_t *nes) {
     uint8_t new = (old >> 1) | (get_carry(nes) << 7);
     change_negative(new >> 7, nes);
     change_zero(new == 0, nes);
@@ -505,11 +497,11 @@ uint8_t ror(uint8_t old, nes_t *nes) {
 }
 
 void ror_a(nes_t *nes) {
-    nes->cpu.regfile.a = ror(nes->cpu.regfile.a, nes);
+    nes->cpu.regfile.a = ror_impl(nes->cpu.regfile.a, nes);
 }
 
 void ror_mem(uint16_t addr, nes_t *nes) {
-    mem_write(addr, ror(mem_read(addr, nes), nes), nes);
+    mem_write(addr, ror_impl(mem_read(addr, nes), nes), nes);
     ++nes->cpu.cycles;
 }
 
@@ -596,8 +588,6 @@ typedef enum {
     ZERO_PAGE_X_INDIRECT, ZERO_PAGE_INDIRECT_Y
 } address_mode_t;
 
-
-
 uint16_t actual_address(address_mode_t address_mode, nes_t *nes) {
     uint16_t argp = nes->cpu.regfile.pc + 1;
     switch (address_mode) {
@@ -607,7 +597,7 @@ uint16_t actual_address(address_mode_t address_mode, nes_t *nes) {
         case IMMEDIATE:
             return argp;
         case RELATIVE:
-            return nes->cpu.regfile.pc + mem_read(argp, nes);
+            return nes->cpu.regfile.pc + (int8_t) mem_read(argp, nes);
         case ABSOLUTE:
             return mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8);
         case ZERO_PAGE:
@@ -686,9 +676,7 @@ address_mode_t inst_address_modes[256] = {
     RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR
 };
 
-typedef void (*inst_func_t)(uint16_t, nes_t *);
-
-inst_func_t inst_funcs[256] = {
+void *inst_funcs[256] = {
     brk, ora, NULL, NULL, NULL, ora, asl_mem, NULL, php, ora, asl_a, NULL, NULL, ora, asl_mem, NULL,
     bpl, ora, NULL, NULL, NULL, ora, asl_mem, NULL, clc, ora, NULL, NULL, NULL, ora, asl_mem, NULL,
     jsr, and, NULL, NULL, bit, and, rol_mem, NULL, plp, and, rol_a, NULL, bit, and, rol_mem, NULL,
@@ -758,10 +746,10 @@ void instruction_disassembly(uint16_t ip, char *buf, size_t buf_size, nes_t *nes
             snprintf(buf, buf_size, "%s #$%02X", mnemonic, *mem(ip + 1, nes, 0));
             break;
         case RELATIVE:
-            snprintf(buf, buf_size, "%s $04X", mnemonic, ip + (int8_t) *mem(ip + 1, nes, 0));
+            snprintf(buf, buf_size, "%s $%04X", mnemonic, ip + (int8_t) *mem(ip + 1, nes, 0));
             break;
         case ZERO_PAGE:
-            snprintf(buf, buf_size, "%s $02X", mnemonic, *mem(ip + 1, nes, 0));
+            snprintf(buf, buf_size, "%s $%02X", mnemonic, *mem(ip + 1, nes, 0));
             break;
         case ZERO_PAGE_X:
             snprintf(buf, buf_size, "%s $%02X,X", mnemonic, *mem(ip + 1, nes, 0));
@@ -837,23 +825,23 @@ void init_nes(rom_t *rom) {
             address = actual_address(address_mode, &nes);
         }
 
+        char disassembly[16];
+        instruction_disassembly(instruction_addr, disassembly, sizeof(disassembly), &nes);
         uint8_t instruction_size = get_instruction_size(opcode); 
-        printf("Instruction %02X is %d bytes long\n", opcode, instruction_size);
+        printf("%s (%d bytes)\n", disassembly, instruction_size);
 
-        inst_func_t instruction_function = inst_funcs[opcode];
+        void *instruction_function = inst_funcs[opcode];
         if (!instruction_function) {
             fprintf(stderr, "Unknown opcode %02X\n", opcode);
         } else {
             if (address_mode >= IMMEDIATE) {
-                instruction_function(address, &nes);
+                ((void (*)(uint16_t, nes_t *)) instruction_function)(address, &nes);
             } else {
                 ((void (*)(nes_t *)) instruction_function)(&nes);
             }
         }
 
-        if (!nes.cpu.just_branched) {
-            nes.cpu.regfile.pc += instruction_size;
-        }
+        nes.cpu.regfile.pc += instruction_size;
 
         if (instruction_size == 1) {
             // Single-byte instructions burn a cycle reading the next byte

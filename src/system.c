@@ -426,7 +426,9 @@ void lsr_mem(uint16_t addr, nes_t *nes) {
   ++nes->cpu.cycles;
 }
 
-void nop(nes_t *nes) {}
+void nop(nes_t *nes) {
+  (void) nes;
+}
 
 void ora(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);

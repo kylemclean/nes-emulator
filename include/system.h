@@ -1,16 +1,22 @@
 #ifndef _SYSTEM_H
 #define _SYSTEM_H
 
-#include <stddef.h>
-
-#define OAMDATA 0x2004
-#define OAMDMA 0x4014
-
 typedef struct {
   uint8_t a;
   uint8_t x;
   uint8_t y;
-  uint8_t p;
+  union {
+    struct {
+      uint8_t carry : 1;
+      uint8_t zero : 1;
+      uint8_t interrupt_disable : 1;
+      uint8_t decimal : 1;
+      uint8_t b : 1;
+      uint8_t overflow : 1;
+      uint8_t negative : 1;
+    };
+    uint8_t p;
+  };
   uint8_t s;
   uint16_t pc;
 } cpu_regfile_t;

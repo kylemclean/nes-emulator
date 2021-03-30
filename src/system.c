@@ -155,65 +155,29 @@ uint16_t irq_vector(nes_t *nes) {
   return mem_read(0xFFFE, nes) | (mem_read(0xFFFF, nes) << 8);
 }
 
-uint8_t get_negative(nes_t *nes) { return (nes->cpu.regfile.p >> 7) & 1; }
-
-uint8_t get_overflow(nes_t *nes) { return (nes->cpu.regfile.p >> 6) & 1; }
-
-uint8_t get_zero(nes_t *nes) { return (nes->cpu.regfile.p >> 1) & 1; }
-
-uint8_t get_carry(nes_t *nes) { return nes->cpu.regfile.p & 1; }
-
-void change_bit(uint8_t *flags, uint8_t position, uint8_t value) {
-  *flags ^= (-!!value ^ *flags) & (1 << position);
-}
-
-void change_negative(uint8_t n, nes_t *nes) {
-  change_bit(&nes->cpu.regfile.p, 7, n);
-}
-
-void change_overflow(uint8_t v, nes_t *nes) {
-  change_bit(&nes->cpu.regfile.p, 6, v);
-}
-
-void change_decimal(uint8_t d, nes_t *nes) {
-  change_bit(&nes->cpu.regfile.p, 3, d);
-}
-
-void change_interrupt_disable(uint8_t i, nes_t *nes) {
-  change_bit(&nes->cpu.regfile.p, 2, i);
-}
-
-void change_zero(uint8_t z, nes_t *nes) {
-  change_bit(&nes->cpu.regfile.p, 1, z);
-}
-
-void change_carry(uint8_t c, nes_t *nes) {
-  change_bit(&nes->cpu.regfile.p, 0, c);
-}
-
 void adc(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
   uint8_t a = nes->cpu.regfile.a;
-  uint16_t sum = a + arg + get_carry(nes);
-  change_negative((sum >> 7) & 1, nes);
-  change_overflow(~(a ^ arg) & (a ^ sum) & 0x80, nes);
-  change_zero(sum == 0, nes);
-  change_carry(sum > 0xFF, nes);
+  uint16_t sum = a + arg + nes->cpu.regfile.carry;
+  nes->cpu.regfile.negative = (sum >> 7) & 1;
+  nes->cpu.regfile.overflow = !!(~(a ^ arg) & (a ^ sum) & 0x80);
+  nes->cpu.regfile.zero = sum == 0;
+  nes->cpu.regfile.carry = sum > 0xFF;
   nes->cpu.regfile.a = (uint8_t)sum;
 }
 
-void and (uint16_t addr, nes_t *nes) {
+void and(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
   nes->cpu.regfile.a &= arg;
-  change_negative(nes->cpu.regfile.a >> 7, nes);
-  change_zero(nes->cpu.regfile.a == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
 uint8_t asl_impl(uint8_t old, nes_t *nes) {
   uint8_t new = old << 1;
-  change_negative(new >> 7, nes);
-  change_zero(new == 0, nes);
-  change_carry(old >> 7, nes);
+  nes->cpu.regfile.negative = new >> 7;
+  nes->cpu.regfile.zero = new == 0;
+  nes->cpu.regfile.carry = old >> 7;
   return new;
 }
 
@@ -227,21 +191,21 @@ void asl_mem(uint16_t addr, nes_t *nes) {
 }
 
 void bcc(uint16_t addr, nes_t *nes) {
-  if (!get_carry(nes)) {
+  if (!nes->cpu.regfile.carry) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
 }
 
 void bcs(uint16_t addr, nes_t *nes) {
-  if (get_carry(nes)) {
+  if (nes->cpu.regfile.carry) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
 }
 
 void beq(uint16_t addr, nes_t *nes) {
-  if (get_zero(nes)) {
+  if (nes->cpu.regfile.zero) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
@@ -249,27 +213,27 @@ void beq(uint16_t addr, nes_t *nes) {
 
 void bit(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
-  change_negative(arg >> 7, nes);
-  change_overflow((arg >> 6) & 1, nes);
-  change_zero((arg & nes->cpu.regfile.a) == 0, nes);
+  nes->cpu.regfile.negative = arg >> 7;
+  nes->cpu.regfile.overflow = (arg >> 6) & 1;
+  nes->cpu.regfile.zero = (arg & nes->cpu.regfile.a) == 0;
 }
 
 void bmi(uint16_t addr, nes_t *nes) {
-  if (get_negative(nes)) {
+  if (nes->cpu.regfile.negative) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
 }
 
 void bne(uint16_t addr, nes_t *nes) {
-  if (!get_zero(nes)) {
+  if (!nes->cpu.regfile.zero) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
 }
 
 void bpl(uint16_t addr, nes_t *nes) {
-  if (!get_negative(nes)) {
+  if (!nes->cpu.regfile.negative) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
@@ -284,31 +248,31 @@ void brk(nes_t *nes) {
 }
 
 void bvc(uint16_t addr, nes_t *nes) {
-  if (!get_overflow(nes)) {
+  if (!nes->cpu.regfile.overflow) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
 }
 
 void bvs(uint16_t addr, nes_t *nes) {
-  if (get_overflow(nes)) {
+  if (nes->cpu.regfile.overflow) {
     nes->cpu.regfile.pc = addr;
     nes->cpu.just_branched = 1;
   }
 }
 
-void clc(nes_t *nes) { change_carry(0, nes); }
+void clc(nes_t *nes) { nes->cpu.regfile.carry = 0; }
 
-void cld(nes_t *nes) { change_decimal(0, nes); }
+void cld(nes_t *nes) { nes->cpu.regfile.decimal = 0; }
 
-void cli(nes_t *nes) { change_interrupt_disable(0, nes); }
+void cli(nes_t *nes) { nes->cpu.regfile.interrupt_disable = 0; }
 
-void clv(nes_t *nes) { change_overflow(0, nes); }
+void clv(nes_t *nes) { nes->cpu.regfile.overflow = 0; }
 
 void compare(uint8_t lhs, uint8_t rhs, nes_t *nes) {
-  change_negative((lhs - rhs) >> 7, nes);
-  change_zero(lhs == rhs, nes);
-  change_carry(lhs >= rhs, nes);
+  nes->cpu.regfile.negative = (lhs - rhs) >> 7;
+  nes->cpu.regfile.zero = lhs == rhs;
+  nes->cpu.regfile.carry = lhs >= rhs;
 }
 
 void cmp(uint16_t addr, nes_t *nes) {
@@ -330,47 +294,47 @@ void dec(uint16_t addr, nes_t *nes) {
   uint8_t new = mem_read(addr, nes) - 1;
   ++nes->cpu.cycles;
   mem_write(addr, new, nes);
-  change_negative(new >> 7, nes);
-  change_zero(new == 0, nes);
+  nes->cpu.regfile.negative = new >> 7;
+  nes->cpu.regfile.zero = new == 0;
 }
 
 void dex(nes_t *nes) {
   --nes->cpu.regfile.x;
-  change_negative(nes->cpu.regfile.x >> 7, nes);
-  change_zero(nes->cpu.regfile.x == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.x >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.x == 0;
 }
 
 void dey(nes_t *nes) {
   --nes->cpu.regfile.y;
-  change_negative(nes->cpu.regfile.y >> 7, nes);
-  change_zero(nes->cpu.regfile.y == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.y >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.y == 0;
 }
 
 void eor(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
   nes->cpu.regfile.a ^= arg;
-  change_negative(nes->cpu.regfile.a >> 7, nes);
-  change_zero(nes->cpu.regfile.a == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
 void inc(uint16_t addr, nes_t *nes) {
   uint8_t new = mem_read(addr, nes) + 1;
   ++nes->cpu.cycles;
   mem_write(addr, new, nes);
-  change_negative(new >> 7, nes);
-  change_zero(new == 0, nes);
+  nes->cpu.regfile.negative = new >> 7;
+  nes->cpu.regfile.zero = new == 0;
 }
 
 void inx(nes_t *nes) {
   ++nes->cpu.regfile.x;
-  change_negative(nes->cpu.regfile.x >> 7, nes);
-  change_zero(nes->cpu.regfile.x == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.x >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.x == 0;
 }
 
 void iny(nes_t *nes) {
   ++nes->cpu.regfile.y;
-  change_negative(nes->cpu.regfile.y >> 7, nes);
-  change_zero(nes->cpu.regfile.y == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.y >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.y == 0;
 }
 
 void jmp(uint16_t target, nes_t *nes) {
@@ -390,8 +354,8 @@ void jsr(uint16_t target, nes_t *nes) {
 void load(uint8_t *target, uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
   *target = arg;
-  change_negative(*target >> 7, nes);
-  change_zero(*target == 0, nes);
+  nes->cpu.regfile.negative = *target >> 7;
+  nes->cpu.regfile.zero = *target == 0;
 }
 
 void lda(uint16_t addr, nes_t *nes) {
@@ -411,9 +375,9 @@ void ldy(uint16_t addr, nes_t *nes) {
 
 uint8_t lsr_impl(uint8_t old, nes_t *nes) {
   uint8_t new = old >> 1;
-  change_negative(0, nes);
-  change_zero(new == 0, nes);
-  change_carry(old & 1, nes);
+  nes->cpu.regfile.negative = 0;
+  nes->cpu.regfile.zero = new == 0;
+  nes->cpu.regfile.carry = old & 1;
   return new;
 }
 
@@ -426,15 +390,13 @@ void lsr_mem(uint16_t addr, nes_t *nes) {
   ++nes->cpu.cycles;
 }
 
-void nop(nes_t *nes) {
-  (void) nes;
-}
+void nop(nes_t *nes) { (void)nes; }
 
 void ora(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
   nes->cpu.regfile.a |= arg;
-  change_negative(nes->cpu.regfile.a >> 7, nes);
-  change_zero(nes->cpu.regfile.a == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
 void pha(nes_t *nes) { push(nes->cpu.regfile.a, nes); }
@@ -443,17 +405,17 @@ void php(nes_t *nes) { push(nes->cpu.regfile.p, nes); }
 
 void pla(nes_t *nes) {
   nes->cpu.regfile.a = pull(nes);
-  change_negative(nes->cpu.regfile.a >> 7, nes);
-  change_zero(nes->cpu.regfile.a == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
 void plp(nes_t *nes) { nes->cpu.regfile.p = pull(nes); }
 
 uint8_t rol_impl(uint8_t old, nes_t *nes) {
-  uint8_t new = (old << 1) | get_carry(nes);
-  change_negative(new >> 7, nes);
-  change_zero(new == 0, nes);
-  change_carry(old >> 7, nes);
+  uint8_t new = (old << 1) | nes->cpu.regfile.carry;
+  nes->cpu.regfile.negative = new >> 7;
+  nes->cpu.regfile.zero = new == 0;
+  nes->cpu.regfile.carry = old >> 7;
   return new;
 }
 
@@ -467,10 +429,10 @@ void rol_mem(uint16_t addr, nes_t *nes) {
 }
 
 uint8_t ror_impl(uint8_t old, nes_t *nes) {
-  uint8_t new = (old >> 1) | (get_carry(nes) << 7);
-  change_negative(new >> 7, nes);
-  change_zero(new == 0, nes);
-  change_carry(old & 1, nes);
+  uint8_t new = (old >> 1) | (nes->cpu.regfile.carry << 7);
+  nes->cpu.regfile.negative = new >> 7;
+  nes->cpu.regfile.zero = new == 0;
+  nes->cpu.regfile.carry = old & 1;
   return new;
 }
 
@@ -500,11 +462,11 @@ void sbc(uint16_t addr, nes_t *nes) {
   adc(~arg, nes);
 }
 
-void sec(nes_t *nes) { change_carry(1, nes); }
+void sec(nes_t *nes) { nes->cpu.regfile.carry = 1; }
 
-void sed(nes_t *nes) { change_decimal(1, nes); }
+void sed(nes_t *nes) { nes->cpu.regfile.decimal = 1; }
 
-void sei(nes_t *nes) { change_interrupt_disable(1, nes); }
+void sei(nes_t *nes) { nes->cpu.regfile.interrupt_disable = 1; }
 
 void sta(uint16_t addr, nes_t *nes) {
   mem_write(addr, nes->cpu.regfile.a, nes);
@@ -520,38 +482,38 @@ void sty(uint16_t addr, nes_t *nes) {
 
 void tax(nes_t *nes) {
   nes->cpu.regfile.x = nes->cpu.regfile.a;
-  change_negative(nes->cpu.regfile.x >> 7, nes);
-  change_zero(nes->cpu.regfile.x == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.x >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.x == 0;
 }
 
 void tay(nes_t *nes) {
   nes->cpu.regfile.y = nes->cpu.regfile.a;
-  change_negative(nes->cpu.regfile.y >> 7, nes);
-  change_zero(nes->cpu.regfile.y == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.y >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.y == 0;
 }
 
 void tsx(nes_t *nes) {
   nes->cpu.regfile.x = nes->cpu.regfile.s;
-  change_negative(nes->cpu.regfile.x >> 7, nes);
-  change_zero(nes->cpu.regfile.x == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.x >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.x == 0;
 }
 
 void txa(nes_t *nes) {
   nes->cpu.regfile.a = nes->cpu.regfile.x;
-  change_negative(nes->cpu.regfile.a >> 7, nes);
-  change_zero(nes->cpu.regfile.a == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
 void txs(nes_t *nes) {
   nes->cpu.regfile.s = nes->cpu.regfile.x;
-  change_negative(nes->cpu.regfile.s >> 7, nes);
-  change_zero(nes->cpu.regfile.s == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.s >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.s == 0;
 }
 
 void tya(nes_t *nes) {
   nes->cpu.regfile.a = nes->cpu.regfile.y;
-  change_negative(nes->cpu.regfile.a >> 7, nes);
-  change_zero(nes->cpu.regfile.a == 0, nes);
+  nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
+  nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
 typedef enum {

@@ -22,10 +22,8 @@ int create_rom(FILE *file, rom_t *rom) {
     return -1;
   }
 
-  if (header[0] != 0x4E || header[1] != 0x45 || header[2] != 0x53 ||
-      header[3] != 0x1A) {
-    fprintf(stderr, "Invalid magic number %02X %02X %02X %02X\n", header[0],
-            header[1], header[2], header[3]);
+  if (header[0] != 0x4E || header[1] != 0x45 || header[2] != 0x53 || header[3] != 0x1A) {
+    fprintf(stderr, "Invalid magic number %02X %02X %02X %02X\n", header[0], header[1], header[2], header[3]);
     return -1;
   }
 
@@ -91,8 +89,7 @@ int create_rom(FILE *file, rom_t *rom) {
 
   long eof_pos = ftell(file);
   if (eof_pos != end_pos) {
-    fprintf(stderr, "Warning: %ld extra bytes at end of file\n",
-            eof_pos - end_pos);
+    fprintf(stderr, "Warning: %ld extra bytes at end of file\n", eof_pos - end_pos);
     return 0;
   }
 
@@ -131,8 +128,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  printf("trainer: %d\nprg size: %zu\nchr size: %zu\n", rom.trainer != NULL,
-         rom.prg_size, rom.chr_size);
+  printf("trainer: %d\nprg size: %zu\nchr size: %zu\n", rom.trainer != NULL, rom.prg_size, rom.chr_size);
 
   init_nes(&rom);
   return 0;
@@ -142,8 +138,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  SDL_Window *window = SDL_CreateWindow("NES Emulator", SDL_WINDOWPOS_CENTERED,
-                                        SDL_WINDOWPOS_CENTERED, 640, 480, 0);
+  SDL_Window *window = SDL_CreateWindow("NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, 0);
   if (window == NULL) {
     fprintf(stderr, "Failed to create SDL window: %s\n", SDL_GetError());
     return 1;
@@ -151,8 +146,7 @@ int main(int argc, char **argv) {
 
   SDL_Surface *surface = SDL_GetWindowSurface(window);
 
-  if (SDL_FillRect(surface, NULL,
-                   SDL_MapRGB(surface->format, 0x00, 0x40, 0xFF)) < 0) {
+  if (SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 0x00, 0x40, 0xFF)) < 0) {
     fprintf(stderr, "Failed to fillrect: %s\n", SDL_GetError());
     return 1;
   }

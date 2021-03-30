@@ -39,22 +39,22 @@ uint8_t *ppu_reg(uint16_t addr, ppu_t *ppu) {
   if (addr >= 0x2000 && addr < 0x4000) {
     uint8_t regno = addr % 8;
     switch (regno) {
-    case 0x0:
-      return &ppu->regfile.ctrl;
-    case 0x1:
-      return &ppu->regfile.mask;
-    case 0x2:
-      return &ppu->regfile.status;
-    case 0x3:
-      return &ppu->regfile.oamaddr;
-    case 0x4:
-      return &ppu->regfile.oamdata;
-    case 0x5:
-      return &ppu->regfile.scroll;
-    case 0x6:
-      return &ppu->regfile.addr;
-    case 0x7:
-      return &ppu->regfile.data;
+      case 0x0:
+        return &ppu->regfile.ctrl;
+      case 0x1:
+        return &ppu->regfile.mask;
+      case 0x2:
+        return &ppu->regfile.status;
+      case 0x3:
+        return &ppu->regfile.oamaddr;
+      case 0x4:
+        return &ppu->regfile.oamdata;
+      case 0x5:
+        return &ppu->regfile.scroll;
+      case 0x6:
+        return &ppu->regfile.addr;
+      case 0x7:
+        return &ppu->regfile.data;
     }
   } else if (addr == 0x4014) {
     return &ppu->regfile.oamdma;
@@ -160,13 +160,13 @@ void adc(uint16_t addr, nes_t *nes) {
   uint8_t a = nes->cpu.regfile.a;
   uint16_t sum = a + arg + nes->cpu.regfile.carry;
   nes->cpu.regfile.negative = (sum >> 7) & 1;
-  nes->cpu.regfile.overflow = !!(~(a ^ arg) & (a ^ sum) & 0x80);
+  nes->cpu.regfile.overflow = (~(a ^ arg) & (a ^ sum) & 0x80) != 0;
   nes->cpu.regfile.zero = sum == 0;
   nes->cpu.regfile.carry = sum > 0xFF;
-  nes->cpu.regfile.a = (uint8_t)sum;
+  nes->cpu.regfile.a = (uint8_t) sum;
 }
 
-void and(uint16_t addr, nes_t *nes) {
+void and (uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
   nes->cpu.regfile.a &= arg;
   nes->cpu.regfile.negative = nes->cpu.regfile.a >> 7;
@@ -241,7 +241,7 @@ void bpl(uint16_t addr, nes_t *nes) {
 
 void brk(nes_t *nes) {
   push((uint8_t)(nes->cpu.regfile.pc >> 8), nes);
-  push((uint8_t)nes->cpu.regfile.pc, nes);
+  push((uint8_t) nes->cpu.regfile.pc, nes);
   push(nes->cpu.regfile.p, nes);
   nes->cpu.regfile.pc = irq_vector(nes);
   nes->cpu.just_branched = 1;
@@ -261,13 +261,21 @@ void bvs(uint16_t addr, nes_t *nes) {
   }
 }
 
-void clc(nes_t *nes) { nes->cpu.regfile.carry = 0; }
+void clc(nes_t *nes) {
+  nes->cpu.regfile.carry = 0;
+}
 
-void cld(nes_t *nes) { nes->cpu.regfile.decimal = 0; }
+void cld(nes_t *nes) {
+  nes->cpu.regfile.decimal = 0;
+}
 
-void cli(nes_t *nes) { nes->cpu.regfile.interrupt_disable = 0; }
+void cli(nes_t *nes) {
+  nes->cpu.regfile.interrupt_disable = 0;
+}
 
-void clv(nes_t *nes) { nes->cpu.regfile.overflow = 0; }
+void clv(nes_t *nes) {
+  nes->cpu.regfile.overflow = 0;
+}
 
 void compare(uint8_t lhs, uint8_t rhs, nes_t *nes) {
   nes->cpu.regfile.negative = (lhs - rhs) >> 7;
@@ -345,7 +353,7 @@ void jmp(uint16_t target, nes_t *nes) {
 void jsr(uint16_t target, nes_t *nes) {
   uint16_t pc_plus_2 = nes->cpu.regfile.pc + 2;
   push((uint8_t)(pc_plus_2 >> 8), nes);
-  push((uint8_t)pc_plus_2, nes);
+  push((uint8_t) pc_plus_2, nes);
   nes->cpu.regfile.pc = target;
   nes->cpu.just_branched = 1;
   ++nes->cpu.cycles;
@@ -390,7 +398,9 @@ void lsr_mem(uint16_t addr, nes_t *nes) {
   ++nes->cpu.cycles;
 }
 
-void nop(nes_t *nes) { (void)nes; }
+void nop(nes_t *nes) {
+  (void) nes;
+}
 
 void ora(uint16_t addr, nes_t *nes) {
   uint8_t arg = mem_read(addr, nes);
@@ -399,9 +409,13 @@ void ora(uint16_t addr, nes_t *nes) {
   nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
-void pha(nes_t *nes) { push(nes->cpu.regfile.a, nes); }
+void pha(nes_t *nes) {
+  push(nes->cpu.regfile.a, nes);
+}
 
-void php(nes_t *nes) { push(nes->cpu.regfile.p, nes); }
+void php(nes_t *nes) {
+  push(nes->cpu.regfile.p, nes);
+}
 
 void pla(nes_t *nes) {
   nes->cpu.regfile.a = pull(nes);
@@ -409,7 +423,9 @@ void pla(nes_t *nes) {
   nes->cpu.regfile.zero = nes->cpu.regfile.a == 0;
 }
 
-void plp(nes_t *nes) { nes->cpu.regfile.p = pull(nes); }
+void plp(nes_t *nes) {
+  nes->cpu.regfile.p = pull(nes);
+}
 
 uint8_t rol_impl(uint8_t old, nes_t *nes) {
   uint8_t new = (old << 1) | nes->cpu.regfile.carry;
@@ -462,11 +478,17 @@ void sbc(uint16_t addr, nes_t *nes) {
   adc(~arg, nes);
 }
 
-void sec(nes_t *nes) { nes->cpu.regfile.carry = 1; }
+void sec(nes_t *nes) {
+  nes->cpu.regfile.carry = 1;
+}
 
-void sed(nes_t *nes) { nes->cpu.regfile.decimal = 1; }
+void sed(nes_t *nes) {
+  nes->cpu.regfile.decimal = 1;
+}
 
-void sei(nes_t *nes) { nes->cpu.regfile.interrupt_disable = 1; }
+void sei(nes_t *nes) {
+  nes->cpu.regfile.interrupt_disable = 1;
+}
 
 void sta(uint16_t addr, nes_t *nes) {
   mem_write(addr, nes->cpu.regfile.a, nes);
@@ -536,57 +558,49 @@ typedef enum {
 uint16_t actual_address(address_mode_t address_mode, nes_t *nes) {
   uint16_t argp = nes->cpu.regfile.pc + 1;
   switch (address_mode) {
-  case ACCUMULATOR:
-  case IMPLIED:
-    return 0; // not relevant
-  case IMMEDIATE:
-    return argp;
-  case RELATIVE:
-    return nes->cpu.regfile.pc + (int8_t)mem_read(argp, nes);
-  case ABSOLUTE:
-    return mem_read(argp, nes) | (((uint16_t)mem_read(argp + 1, nes)) << 8);
-  case ZERO_PAGE:
-    return mem_read(argp, nes);
-  case INDIRECT: {
-    uint16_t addr_of_addr =
-        mem_read(argp, nes) | (((uint16_t)mem_read(argp + 1, nes)) << 8);
-    return mem_read(addr_of_addr, nes) |
-           (((uint16_t)mem_read(addr_of_addr + 1, nes)) << 8);
-  }
-  case ABSOLUTE_X:
-    return (mem_read(argp, nes) | (((uint16_t)mem_read(argp + 1, nes)) << 8)) +
-           nes->cpu.regfile.x;
-  case ABSOLUTE_Y:
-    return (mem_read(argp, nes) | (((uint16_t)mem_read(argp + 1, nes)) << 8)) +
-           nes->cpu.regfile.y;
-  case ZERO_PAGE_X:
-    return mem_read(argp, nes) + nes->cpu.regfile.x;
-  case ZERO_PAGE_Y:
-    return mem_read(argp, nes) + nes->cpu.regfile.y;
-  case ZERO_PAGE_X_INDIRECT: {
-    uint16_t addr_of_addr = mem_read(argp, nes) + nes->cpu.regfile.x;
-    return mem_read(addr_of_addr, nes) |
-           (((uint16_t)mem_read(addr_of_addr + 1, nes)) << 8);
-  }
-  case ZERO_PAGE_INDIRECT_Y: {
-    uint16_t addr_of_addr = mem_read(argp, nes);
-    return (mem_read(addr_of_addr, nes) |
-            (((uint16_t)mem_read(addr_of_addr + 1, nes)) << 8)) +
-           nes->cpu.regfile.y;
-  }
-  default: {
-    fprintf(stderr, "Unknown address_mode %d\n", address_mode);
-    return 0;
-  }
+    case ACCUMULATOR:
+    case IMPLIED:
+      return 0; // not relevant
+    case IMMEDIATE:
+      return argp;
+    case RELATIVE:
+      return nes->cpu.regfile.pc + (int8_t) mem_read(argp, nes);
+    case ABSOLUTE:
+      return mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8);
+    case ZERO_PAGE:
+      return mem_read(argp, nes);
+    case INDIRECT: {
+      uint16_t addr_of_addr = mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8);
+      return mem_read(addr_of_addr, nes) | (((uint16_t) mem_read(addr_of_addr + 1, nes)) << 8);
+    }
+    case ABSOLUTE_X:
+      return (mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8)) + nes->cpu.regfile.x;
+    case ABSOLUTE_Y:
+      return (mem_read(argp, nes) | (((uint16_t) mem_read(argp + 1, nes)) << 8)) + nes->cpu.regfile.y;
+    case ZERO_PAGE_X:
+      return mem_read(argp, nes) + nes->cpu.regfile.x;
+    case ZERO_PAGE_Y:
+      return mem_read(argp, nes) + nes->cpu.regfile.y;
+    case ZERO_PAGE_X_INDIRECT: {
+      uint16_t addr_of_addr = mem_read(argp, nes) + nes->cpu.regfile.x;
+      return mem_read(addr_of_addr, nes) | (((uint16_t) mem_read(addr_of_addr + 1, nes)) << 8);
+    }
+    case ZERO_PAGE_INDIRECT_Y: {
+      uint16_t addr_of_addr = mem_read(argp, nes);
+      return (mem_read(addr_of_addr, nes) | (((uint16_t) mem_read(addr_of_addr + 1, nes)) << 8)) + nes->cpu.regfile.y;
+    }
+    default: {
+      fprintf(stderr, "Unknown address_mode %d\n", address_mode);
+      return 0;
+    }
   }
 }
 
 void print_registers(cpu_regfile_t *regfile) {
   printf("A=%02X, X=%02X, Y=%02X, S=%02X, P=%02X (N=%d, V=%d, D=%d, I=%d, "
          "Z=%d, C=%d), PC=%04X\n",
-         regfile->a, regfile->x, regfile->y, regfile->s, regfile->p,
-         !!(regfile->p & 0x80), !!(regfile->p & 0x40), !!(regfile->p & 0x08),
-         !!(regfile->p & 0x04), !!(regfile->p & 0x02), !!(regfile->p & 0x01),
+         regfile->a, regfile->x, regfile->y, regfile->s, regfile->p, (regfile->p & 0x80) != 0, (regfile->p & 0x40) != 0,
+         (regfile->p & 0x08) != 0, (regfile->p & 0x04) != 0, (regfile->p & 0x02) != 0, (regfile->p & 0x01) != 0,
          regfile->pc);
 }
 
@@ -595,188 +609,64 @@ unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);
 #endif
 
+// clang-format off
 char *inst_mnemonics[256] = {
-    "BRK", "ORA", NULL,  NULL,  NULL,  "ORA", "ASL", NULL,  "PHP", "ORA", "ASL",
-    NULL,  NULL,  "ORA", "ASL", NULL,  "BPL", "ORA", NULL,  NULL,  NULL,  "ORA",
-    "ASL", NULL,  "CLC", "ORA", NULL,  NULL,  NULL,  "ORA", "ASL", NULL,  "JSR",
-    "AND", NULL,  NULL,  "BIT", "AND", "ROL", NULL,  "PLP", "AND", "ROL", NULL,
-    "BIT", "AND", "ROL", NULL,  "BMI", "AND", NULL,  NULL,  NULL,  "AND", "ROL",
-    NULL,  "SEC", "AND", NULL,  NULL,  NULL,  "AND", "ROL", NULL,  "RTI", "EOR",
-    NULL,  NULL,  NULL,  "EOR", "LSR", NULL,  "PHA", "EOR", "LSR", NULL,  "JMP",
-    "EOR", "LSR", NULL,  "BVC", "EOR", NULL,  NULL,  NULL,  "EOR", "LSR", NULL,
-    "CLI", "EOR", NULL,  NULL,  NULL,  "EOR", "LSR", NULL,  "RTS", "ADC", NULL,
-    NULL,  NULL,  "ADC", "ROR", NULL,  "PLA", "ADC", "ROR", NULL,  "JMP", "ADC",
-    "ROR", NULL,  "BVS", "ADC", NULL,  NULL,  NULL,  "ADC", "ROR", NULL,  "SEI",
-    "ADC", NULL,  NULL,  NULL,  "ADC", "ROR", NULL,  NULL,  "STA", NULL,  NULL,
-    "STY", "STA", "STX", NULL,  "DEY", NULL,  "TXA", NULL,  "STY", "STA", "STX",
-    NULL,  "BCC", "STA", NULL,  NULL,  "STY", "STA", "STX", NULL,  "TYA", "STA",
-    "TXS", NULL,  NULL,  "STA", NULL,  NULL,  "LDY", "LDA", "LDX", NULL,  "LDY",
-    "LDA", "LDX", NULL,  "TAY", "LDA", "TAX", NULL,  "LDY", "LDA", "LDX", NULL,
-    "BCS", "LDA", NULL,  NULL,  "LDY", "LDA", "LDX", NULL,  "CLV", "LDA", "TSX",
-    NULL,  "LDY", "LDA", "LDX", NULL,  "CPY", "CMP", NULL,  NULL,  "CPY", "CMP",
-    "DEC", NULL,  "INY", "CMP", "DEX", NULL,  "CPY", "CMP", "DEC", NULL,  "BNE",
-    "CMP", NULL,  NULL,  NULL,  "CMP", "DEC", NULL,  "CLD", "CMP", NULL,  NULL,
-    NULL,  "CMP", "DEC", NULL,  "CPX", "SBC", NULL,  NULL,  "CPX", "SBC", "INC",
-    NULL,  "INX", "SBC", "NOP", NULL,  "CPX", "SBC", "INC", NULL,  "BEQ", "SBC",
-    NULL,  NULL,  NULL,  "SBC", "INC", NULL,  "SED", "SBC", NULL,  NULL,  NULL,
-    "SBC", "INC", NULL};
+    "BRK", "ORA", NULL, NULL, NULL, "ORA", "ASL", NULL, "PHP", "ORA", "ASL", NULL, NULL, "ORA", "ASL", NULL,
+    "BPL", "ORA", NULL, NULL, NULL, "ORA", "ASL", NULL, "CLC", "ORA", NULL, NULL, NULL, "ORA", "ASL", NULL,
+    "JSR", "AND", NULL, NULL, "BIT", "AND", "ROL", NULL, "PLP", "AND", "ROL", NULL, "BIT", "AND", "ROL", NULL,
+    "BMI", "AND", NULL, NULL, NULL, "AND", "ROL", NULL, "SEC", "AND", NULL, NULL, NULL, "AND", "ROL", NULL,
+    "RTI", "EOR", NULL, NULL, NULL, "EOR", "LSR", NULL, "PHA", "EOR", "LSR", NULL, "JMP", "EOR", "LSR", NULL,
+    "BVC", "EOR", NULL, NULL, NULL, "EOR", "LSR", NULL, "CLI", "EOR", NULL, NULL, NULL, "EOR", "LSR", NULL,
+    "RTS", "ADC", NULL, NULL, NULL, "ADC", "ROR", NULL, "PLA", "ADC", "ROR", NULL, "JMP", "ADC", "ROR", NULL,
+    "BVS", "ADC", NULL, NULL, NULL, "ADC", "ROR", NULL, "SEI", "ADC", NULL, NULL, NULL, "ADC", "ROR", NULL,
+    NULL, "STA", NULL, NULL, "STY", "STA", "STX", NULL, "DEY", NULL, "TXA", NULL, "STY", "STA", "STX", NULL,
+    "BCC", "STA", NULL, NULL, "STY", "STA", "STX", NULL, "TYA", "STA", "TXS", NULL, NULL, "STA", NULL, NULL,
+    "LDY", "LDA", "LDX", NULL, "LDY", "LDA", "LDX", NULL, "TAY", "LDA", "TAX", NULL, "LDY", "LDA", "LDX", NULL,
+    "BCS", "LDA", NULL, NULL, "LDY", "LDA", "LDX", NULL, "CLV", "LDA", "TSX", NULL, "LDY", "LDA", "LDX", NULL,
+    "CPY", "CMP", NULL, NULL, "CPY", "CMP", "DEC", NULL, "INY", "CMP", "DEX", NULL, "CPY", "CMP", "DEC", NULL,
+    "BNE", "CMP", NULL, NULL, NULL, "CMP", "DEC", NULL, "CLD", "CMP", NULL, NULL, NULL, "CMP", "DEC", NULL,
+    "CPX", "SBC", NULL, NULL, "CPX", "SBC", "INC", NULL, "INX", "SBC", "NOP", NULL, "CPX", "SBC", "INC", NULL,
+    "BEQ", "SBC", NULL, NULL, NULL, "SBC", "INC", NULL, "SED", "SBC", NULL, NULL, NULL, "SBC", "INC", NULL
+};
 
-address_mode_t inst_address_modes[256] = {IMPLIED,     ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          ACCUMULATOR, ERROR,
-                                          ERROR,       ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE_X,
-                                          ZERO_PAGE_X, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ABSOLUTE_X,  ERROR,
-                                          ABSOLUTE,    ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ZERO_PAGE,   ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          ACCUMULATOR, ERROR,
-                                          ABSOLUTE,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE_X,
-                                          ZERO_PAGE_X, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ABSOLUTE_X,  ERROR,
-                                          IMPLIED,     ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          ACCUMULATOR, ERROR,
-                                          ABSOLUTE,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE_X,
-                                          ZERO_PAGE_X, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ABSOLUTE_X,  ERROR,
-                                          IMPLIED,     ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          ACCUMULATOR, ERROR,
-                                          INDIRECT,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE_X,
-                                          ZERO_PAGE_X, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ABSOLUTE_X,  ERROR,
-                                          ERROR,       ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ZERO_PAGE,   ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     ERROR,
-                                          IMPLIED,     ERROR,
-                                          ABSOLUTE,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ZERO_PAGE_X, ZERO_PAGE_X,
-                                          ZERO_PAGE_Y, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          IMPLIED,     ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ERROR,       ERROR,
-                                          IMMEDIATE,   ZERO_PAGE_X_INDIRECT,
-                                          IMMEDIATE,   ERROR,
-                                          ZERO_PAGE,   ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          IMPLIED,     ERROR,
-                                          ABSOLUTE,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ZERO_PAGE_X, ZERO_PAGE_X,
-                                          ZERO_PAGE_Y, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          IMPLIED,     ERROR,
-                                          ABSOLUTE_X,  ABSOLUTE_X,
-                                          ABSOLUTE_Y,  ERROR,
-                                          IMMEDIATE,   ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ZERO_PAGE,   ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          IMPLIED,     ERROR,
-                                          ABSOLUTE,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE_X,
-                                          ZERO_PAGE_X, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ABSOLUTE_X,  ERROR,
-                                          IMMEDIATE,   ZERO_PAGE_X_INDIRECT,
-                                          ERROR,       ERROR,
-                                          ZERO_PAGE,   ZERO_PAGE,
-                                          ZERO_PAGE,   ERROR,
-                                          IMPLIED,     IMMEDIATE,
-                                          IMPLIED,     ERROR,
-                                          ABSOLUTE,    ABSOLUTE,
-                                          ABSOLUTE,    ERROR,
-                                          RELATIVE,    ZERO_PAGE_INDIRECT_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ZERO_PAGE_X,
-                                          ZERO_PAGE_X, ERROR,
-                                          IMPLIED,     ABSOLUTE_Y,
-                                          ERROR,       ERROR,
-                                          ERROR,       ABSOLUTE_X,
-                                          ABSOLUTE_X,  ERROR};
+address_mode_t inst_address_modes[256] = {
+    IMPLIED, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, ERROR, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    ABSOLUTE, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    IMPLIED, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    IMPLIED, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, ACCUMULATOR, ERROR, INDIRECT, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    ERROR, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, ERROR, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ZERO_PAGE_Y, ERROR, IMPLIED, ABSOLUTE_Y, IMPLIED, ERROR, ERROR, ABSOLUTE_X, ERROR, ERROR,
+    IMMEDIATE, ZERO_PAGE_X_INDIRECT, IMMEDIATE, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ZERO_PAGE_Y, ERROR, IMPLIED, ABSOLUTE_Y, IMPLIED, ERROR, ABSOLUTE_X, ABSOLUTE_X, ABSOLUTE_Y, ERROR,
+    IMMEDIATE, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR,
+    IMMEDIATE, ZERO_PAGE_X_INDIRECT, ERROR, ERROR, ZERO_PAGE, ZERO_PAGE, ZERO_PAGE, ERROR, IMPLIED, IMMEDIATE, IMPLIED, ERROR, ABSOLUTE, ABSOLUTE, ABSOLUTE, ERROR,
+    RELATIVE, ZERO_PAGE_INDIRECT_Y, ERROR, ERROR, ERROR, ZERO_PAGE_X, ZERO_PAGE_X, ERROR, IMPLIED, ABSOLUTE_Y, ERROR, ERROR, ERROR, ABSOLUTE_X, ABSOLUTE_X, ERROR
+};
 
 void *inst_funcs[256] = {
-    brk,     ora,  NULL,    NULL, NULL,    ora,  asl_mem, NULL, php,     ora,
-    asl_a,   NULL, NULL,    ora,  asl_mem, NULL, bpl,     ora,  NULL,    NULL,
-    NULL,    ora,  asl_mem, NULL, clc,     ora,  NULL,    NULL, NULL,    ora,
-    asl_mem, NULL, jsr,     and,  NULL,    NULL, bit,     and,  rol_mem, NULL,
-    plp,     and,  rol_a,   NULL, bit,     and,  rol_mem, NULL, bmi,     and,
-    NULL,    NULL, NULL,    and,  rol_mem, NULL, sec,     and,  NULL,    NULL,
-    NULL,    and,  rol_mem, NULL, rti,     eor,  NULL,    NULL, NULL,    eor,
-    lsr_mem, NULL, pha,     eor,  lsr_a,   NULL, jmp,     eor,  lsr_mem, NULL,
-    bvc,     eor,  NULL,    NULL, NULL,    eor,  lsr_mem, NULL, cli,     eor,
-    NULL,    NULL, NULL,    eor,  lsr_mem, NULL, rts,     adc,  NULL,    NULL,
-    NULL,    adc,  ror_mem, NULL, pla,     adc,  ror_a,   NULL, jmp,     adc,
-    ror_mem, NULL, bvs,     adc,  NULL,    NULL, NULL,    adc,  ror_mem, NULL,
-    sei,     adc,  NULL,    NULL, NULL,    adc,  ror_mem, NULL, NULL,    sta,
-    NULL,    NULL, sty,     sta,  stx,     NULL, dey,     NULL, txa,     NULL,
-    sty,     sta,  stx,     NULL, bcc,     sta,  NULL,    NULL, sty,     sta,
-    stx,     NULL, tya,     sta,  txs,     NULL, NULL,    sta,  NULL,    NULL,
-    ldy,     lda,  ldx,     NULL, ldy,     lda,  ldx,     NULL, tay,     lda,
-    tax,     NULL, ldy,     lda,  ldx,     NULL, bcs,     lda,  NULL,    NULL,
-    ldy,     lda,  ldx,     NULL, clv,     lda,  tsx,     NULL, ldy,     lda,
-    ldx,     NULL, cpy,     cmp,  NULL,    NULL, cpy,     cmp,  dec,     NULL,
-    iny,     cmp,  dex,     NULL, cpy,     cmp,  dec,     NULL, bne,     cmp,
-    NULL,    NULL, NULL,    cmp,  dec,     NULL, cld,     cmp,  NULL,    NULL,
-    NULL,    cmp,  dec,     NULL, cpx,     sbc,  NULL,    NULL, cpx,     sbc,
-    inc,     NULL, inx,     sbc,  nop,     NULL, cpx,     sbc,  inc,     NULL,
-    beq,     sbc,  NULL,    NULL, NULL,    sbc,  inc,     NULL, sed,     sbc,
-    NULL,    NULL, NULL,    sbc,  inc,     NULL};
+    brk, ora, NULL, NULL, NULL, ora, asl_mem, NULL, php, ora, asl_a, NULL, NULL, ora, asl_mem, NULL,
+    bpl, ora, NULL, NULL, NULL, ora, asl_mem, NULL, clc, ora, NULL, NULL, NULL, ora, asl_mem, NULL,
+    jsr, and, NULL, NULL, bit, and, rol_mem, NULL, plp, and, rol_a, NULL, bit, and, rol_mem, NULL,
+    bmi, and, NULL, NULL, NULL, and, rol_mem, NULL, sec, and, NULL, NULL, NULL, and, rol_mem, NULL,
+    rti, eor, NULL, NULL, NULL, eor, lsr_mem, NULL, pha, eor, lsr_a, NULL, jmp, eor, lsr_mem, NULL,
+    bvc, eor, NULL, NULL, NULL, eor, lsr_mem, NULL, cli, eor, NULL, NULL, NULL, eor, lsr_mem, NULL,
+    rts, adc, NULL, NULL, NULL, adc, ror_mem, NULL, pla, adc, ror_a, NULL, jmp, adc, ror_mem, NULL,
+    bvs, adc, NULL, NULL, NULL, adc, ror_mem, NULL, sei, adc, NULL, NULL, NULL, adc, ror_mem, NULL,
+    NULL, sta, NULL, NULL, sty, sta, stx, NULL, dey, NULL, txa, NULL, sty, sta, stx,  NULL,
+    bcc, sta, NULL, NULL, sty, sta, stx, NULL, tya, sta, txs, NULL, NULL, sta, NULL, NULL,
+    ldy, lda, ldx, NULL, ldy, lda, ldx, NULL, tay, lda, tax, NULL, ldy, lda, ldx, NULL,
+    bcs, lda, NULL, NULL, ldy, lda, ldx, NULL, clv, lda, tsx, NULL, ldy, lda, ldx, NULL,
+    cpy, cmp, NULL, NULL, cpy, cmp, dec, NULL, iny, cmp, dex, NULL, cpy, cmp, dec, NULL,
+    bne, cmp, NULL, NULL, NULL, cmp, dec, NULL, cld, cmp, NULL, NULL, NULL, cmp, dec, NULL,
+    cpx, sbc, NULL, NULL, cpx, sbc, inc, NULL, inx, sbc, nop, NULL, cpx, sbc, inc, NULL,
+    beq, sbc, NULL, NULL, NULL, sbc, inc, NULL, sed, sbc, NULL, NULL, NULL, sbc, inc, NULL
+};
+// clang-format on
 
 uint8_t get_instruction_size(uint8_t opcode) {
   if (opcode == 0x00) {
@@ -786,29 +676,28 @@ uint8_t get_instruction_size(uint8_t opcode) {
 
   address_mode_t address_mode = inst_address_modes[opcode];
   switch (address_mode) {
-  case IMPLIED:
-  case ACCUMULATOR:
-    return 1;
-  case IMMEDIATE:
-  case RELATIVE:
-  case ZERO_PAGE:
-  case ZERO_PAGE_X:
-  case ZERO_PAGE_Y:
-  case ZERO_PAGE_X_INDIRECT:
-  case ZERO_PAGE_INDIRECT_Y:
-    return 2;
-  case ABSOLUTE:
-  case ABSOLUTE_X:
-  case ABSOLUTE_Y:
-  case INDIRECT:
-    return 3;
-  default:
-    return 0;
+    case IMPLIED:
+    case ACCUMULATOR:
+      return 1;
+    case IMMEDIATE:
+    case RELATIVE:
+    case ZERO_PAGE:
+    case ZERO_PAGE_X:
+    case ZERO_PAGE_Y:
+    case ZERO_PAGE_X_INDIRECT:
+    case ZERO_PAGE_INDIRECT_Y:
+      return 2;
+    case ABSOLUTE:
+    case ABSOLUTE_X:
+    case ABSOLUTE_Y:
+    case INDIRECT:
+      return 3;
+    default:
+      return 0;
   }
 }
 
-void instruction_disassembly(uint16_t ip, char *buf, size_t buf_size,
-                             nes_t *nes) {
+void instruction_disassembly(uint16_t ip, char *buf, size_t buf_size, nes_t *nes) {
   uint8_t opcode = *mem(ip, nes, 0);
 
   char *mnemonic = inst_mnemonics[opcode];
@@ -820,53 +709,48 @@ void instruction_disassembly(uint16_t ip, char *buf, size_t buf_size,
   address_mode_t address_mode = inst_address_modes[opcode];
 
   switch (address_mode) {
-  case IMPLIED:
-    snprintf(buf, buf_size, "%s", mnemonic);
-    break;
-  case ACCUMULATOR:
-    snprintf(buf, buf_size, "%s A", mnemonic);
-    break;
-  case IMMEDIATE:
-    snprintf(buf, buf_size, "%s #$%02X", mnemonic, *mem(ip + 1, nes, 0));
-    break;
-  case RELATIVE:
-    snprintf(buf, buf_size, "%s $%04X", mnemonic,
-             ip + (int8_t)*mem(ip + 1, nes, 0));
-    break;
-  case ZERO_PAGE:
-    snprintf(buf, buf_size, "%s $%02X", mnemonic, *mem(ip + 1, nes, 0));
-    break;
-  case ZERO_PAGE_X:
-    snprintf(buf, buf_size, "%s $%02X,X", mnemonic, *mem(ip + 1, nes, 0));
-    break;
-  case ZERO_PAGE_Y:
-    snprintf(buf, buf_size, "%s $%02X,Y", mnemonic, *mem(ip + 1, nes, 0));
-    break;
-  case ZERO_PAGE_X_INDIRECT:
-    snprintf(buf, buf_size, "%s ($%02X,X)", mnemonic, *mem(ip + 1, nes, 0));
-    break;
-  case ZERO_PAGE_INDIRECT_Y:
-    snprintf(buf, buf_size, "%s ($%02X),Y", mnemonic, *mem(ip + 1, nes, 0));
-    break;
-  case ABSOLUTE:
-    snprintf(buf, buf_size, "%s $%04X", mnemonic,
-             *mem(ip + 1, nes, 0) | (((uint16_t)*mem(ip + 2, nes, 0)) << 8));
-    break;
-  case ABSOLUTE_X:
-    snprintf(buf, buf_size, "%s $%04X,X", mnemonic,
-             *mem(ip + 1, nes, 0) | (((uint16_t)*mem(ip + 2, nes, 0)) << 8));
-    break;
-  case ABSOLUTE_Y:
-    snprintf(buf, buf_size, "%s $%04X,Y", mnemonic,
-             *mem(ip + 1, nes, 0) | (((uint16_t)*mem(ip + 2, nes, 0)) << 8));
-    break;
-  case INDIRECT:
-    snprintf(buf, buf_size, "%s ($%04X)", mnemonic,
-             *mem(ip + 1, nes, 0) | (((uint16_t)*mem(ip + 2, nes, 0)) << 8));
-    break;
-  default:
-    snprintf(buf, buf_size, "%s ???", mnemonic);
-    break;
+    case IMPLIED:
+      snprintf(buf, buf_size, "%s", mnemonic);
+      break;
+    case ACCUMULATOR:
+      snprintf(buf, buf_size, "%s A", mnemonic);
+      break;
+    case IMMEDIATE:
+      snprintf(buf, buf_size, "%s #$%02X", mnemonic, *mem(ip + 1, nes, 0));
+      break;
+    case RELATIVE:
+      snprintf(buf, buf_size, "%s $%04X", mnemonic, ip + (int8_t) *mem(ip + 1, nes, 0));
+      break;
+    case ZERO_PAGE:
+      snprintf(buf, buf_size, "%s $%02X", mnemonic, *mem(ip + 1, nes, 0));
+      break;
+    case ZERO_PAGE_X:
+      snprintf(buf, buf_size, "%s $%02X,X", mnemonic, *mem(ip + 1, nes, 0));
+      break;
+    case ZERO_PAGE_Y:
+      snprintf(buf, buf_size, "%s $%02X,Y", mnemonic, *mem(ip + 1, nes, 0));
+      break;
+    case ZERO_PAGE_X_INDIRECT:
+      snprintf(buf, buf_size, "%s ($%02X,X)", mnemonic, *mem(ip + 1, nes, 0));
+      break;
+    case ZERO_PAGE_INDIRECT_Y:
+      snprintf(buf, buf_size, "%s ($%02X),Y", mnemonic, *mem(ip + 1, nes, 0));
+      break;
+    case ABSOLUTE:
+      snprintf(buf, buf_size, "%s $%04X", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+      break;
+    case ABSOLUTE_X:
+      snprintf(buf, buf_size, "%s $%04X,X", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+      break;
+    case ABSOLUTE_Y:
+      snprintf(buf, buf_size, "%s $%04X,Y", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+      break;
+    case INDIRECT:
+      snprintf(buf, buf_size, "%s ($%04X)", mnemonic, *mem(ip + 1, nes, 0) | (((uint16_t) *mem(ip + 2, nes, 0)) << 8));
+      break;
+    default:
+      snprintf(buf, buf_size, "%s ???", mnemonic);
+      break;
   }
 }
 
@@ -915,8 +799,7 @@ void init_nes(rom_t *rom) {
     }
 
     char disassembly[16];
-    instruction_disassembly(instruction_addr, disassembly, sizeof(disassembly),
-                            &nes);
+    instruction_disassembly(instruction_addr, disassembly, sizeof(disassembly), &nes);
     uint8_t instruction_size = get_instruction_size(opcode);
     printf("%s (%d bytes)\n", disassembly, instruction_size);
 
@@ -925,9 +808,9 @@ void init_nes(rom_t *rom) {
       fprintf(stderr, "Unknown opcode %02X\n", opcode);
     } else {
       if (address_mode >= IMMEDIATE) {
-        ((void (*)(uint16_t, nes_t *))instruction_function)(address, &nes);
+        ((void (*)(uint16_t, nes_t *)) instruction_function)(address, &nes);
       } else {
-        ((void (*)(nes_t *))instruction_function)(&nes);
+        ((void (*)(nes_t *)) instruction_function)(&nes);
       }
     }
 
@@ -937,15 +820,12 @@ void init_nes(rom_t *rom) {
       // Single-byte instructions burn a cycle reading the next byte
       ++nes.cpu.cycles;
     }
-    if (address_mode == ZERO_PAGE_X || address_mode == ZERO_PAGE_Y ||
-        address_mode == ZERO_PAGE_X_INDIRECT) {
+    if (address_mode == ZERO_PAGE_X || address_mode == ZERO_PAGE_Y || address_mode == ZERO_PAGE_X_INDIRECT) {
       // Burns a cycle reading the unindexed zero page address
       ++nes.cpu.cycles;
     }
-    if (address_mode == ABSOLUTE_X || address_mode == ABSOLUTE_Y ||
-        address_mode == ZERO_PAGE_INDIRECT_Y) {
-      if ((instruction_addr & 0xFF00) != (address & 0xFF00) ||
-          nes.cpu.just_wrote) {
+    if (address_mode == ABSOLUTE_X || address_mode == ABSOLUTE_Y || address_mode == ZERO_PAGE_INDIRECT_Y) {
+      if ((instruction_addr & 0xFF00) != (address & 0xFF00) || nes.cpu.just_wrote) {
         // Takes an extra cycle when crossing page boundary or writing
         ++nes.cpu.cycles;
       }

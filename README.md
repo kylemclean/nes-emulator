@@ -1,8 +1,10 @@
 # NES Emulator
-This is a NES Emulator written in C.
+This is a work-in-progress NES emulator written in C.  
+
+So far, only a 6502 emulator is implemented.
 
 ## Dependencies
-Requires SDL2.
+Requires SDL2 (not currently used for anything).
 
 ## Building
 CMake is used for building.
@@ -14,4 +16,4 @@ $ cd build
 $ cmake ..
 $ make
 ```
-`NESEmulator` will be created in the build directory.
+The executable `NESEmulator` will be created in the build directory.
